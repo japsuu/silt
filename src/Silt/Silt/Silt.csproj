@@ -10,6 +10,9 @@
     <ItemGroup>
       <PackageReference Include="Serilog" Version="4.3.1-dev-02395" />
       <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+      <PackageReference Include="Silk.NET.Input" Version="2.22.0" />
+      <PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
+      <PackageReference Include="Silk.NET.Windowing" Version="2.22.0" />
     </ItemGroup>
 
 </Project>
