@@ -4,6 +4,8 @@ using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using Silt.Graphics;
+using Shader = Silt.Graphics.Shader;
 
 namespace Silt;
 
@@ -14,10 +16,10 @@ internal static class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
-    private static uint _vao;
-    private static uint _vbo;
-    private static uint _ebo;
-    private static uint _program;
+    private static VertexArrayObject<float, uint> _vao = null!;
+    private static BufferObject<float> _vbo = null!;
+    private static BufferObject<uint> _ebo = null!;
+    private static Shader _shader = null!;
 
     private static readonly float[] QuadVertices =
     [
@@ -40,27 +42,7 @@ internal static class Program
         1, 2, 3
     ];
 
-    private const string VERTEX_SOURCE = @"
-#version 330 core
-
-layout (location = 0) in vec3 aPosition;
-
-void main()
-{
-    gl_Position = vec4(aPosition, 1.0);
-}";
-
-    private const string FRAGMENT_SOURCE = @"
-#version 330 core
-
-out vec4 out_color;
-
-void main()
-{
-    out_color = vec4(1.0, 0.5, 0.2, 1.0);
-}";
-
-
+    
     private static void Main(string[] args)
     {
         SetupLogging();
@@ -75,6 +57,7 @@ void main()
             _window.Update += OnUpdate;
             _window.Render += OnRender;
             _window.FramebufferResize += OnFramebufferResize;
+            _window.Closing += OnClose;
 
             _window.Run();
         }
@@ -90,7 +73,7 @@ void main()
     }
 
 
-    private static unsafe void OnLoad()
+    private static void OnLoad()
     {
         Log.Information("Window loaded");
 
@@ -106,73 +89,21 @@ void main()
         foreach (IKeyboard k in input.Keyboards)
             k.KeyDown += KeyDown;
 
-        // Setup VAO
-        _vao = _gl.GenVertexArray();
-        _gl.BindVertexArray(_vao);
+        // Create shader
+        _shader = new Shader(_gl, "assets/base.vert", "assets/base.frag");
 
-        // Setup VBO
-        _vbo = _gl.GenBuffer();
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        // Create buffers
+        _vbo = new BufferObject<float>(_gl, QuadVertices, BufferTargetARB.ArrayBuffer);
+        _ebo = new BufferObject<uint>(_gl, QuadIndices, BufferTargetARB.ElementArrayBuffer);
 
-        // Upload vertex data
-        fixed (float* buf = QuadVertices)
-        {
-            _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(QuadVertices.Length * sizeof(float)), buf, BufferUsageARB.StaticDraw);
-        }
+        // Create VAO
+        _vao = new VertexArrayObject<float, uint>(_gl, _vbo, _ebo);
+        _vao.SetVertexAttributePointer(0, 3, VertexAttribPointerType.Float, 3, 0);
         
-        _ebo = _gl.GenBuffer();
-        _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, _ebo);
-
-        // Upload index data
-        fixed (uint* buf = QuadIndices)
-        {
-            _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(QuadIndices.Length * sizeof(uint)), buf, BufferUsageARB.StaticDraw);
-        }
-        
-        // Setup vertex shader
-        uint vertexShader = _gl.CreateShader(ShaderType.VertexShader);
-        _gl.ShaderSource(vertexShader, VERTEX_SOURCE);
-        
-        _gl.CompileShader(vertexShader);
-
-        _gl.GetShader(vertexShader, ShaderParameterName.CompileStatus, out int vStatus);
-        if (vStatus != (int) GLEnum.True)
-            throw new Exception("Vertex shader failed to compile: " + _gl.GetShaderInfoLog(vertexShader));
-        
-        // Setup fragment shader
-        uint fragmentShader = _gl.CreateShader(ShaderType.FragmentShader);
-        _gl.ShaderSource(fragmentShader, FRAGMENT_SOURCE);
-
-        _gl.CompileShader(fragmentShader);
-
-        _gl.GetShader(fragmentShader, ShaderParameterName.CompileStatus, out int fStatus);
-        if (fStatus != (int) GLEnum.True)
-            throw new Exception("Fragment shader failed to compile: " + _gl.GetShaderInfoLog(fragmentShader));
-        
-        _program = _gl.CreateProgram();
-        
-        _gl.AttachShader(_program, vertexShader);
-        _gl.AttachShader(_program, fragmentShader);
-
-        _gl.LinkProgram(_program);
-
-        _gl.GetProgram(_program, ProgramPropertyARB.LinkStatus, out int lStatus);
-        if (lStatus != (int) GLEnum.True)
-            throw new Exception("Program failed to link: " + _gl.GetProgramInfoLog(_program));
-        
-        _gl.DetachShader(_program, vertexShader);
-        _gl.DetachShader(_program, fragmentShader);
-        _gl.DeleteShader(vertexShader);
-        _gl.DeleteShader(fragmentShader);
-        
-        const uint positionLoc = 0;
-        _gl.EnableVertexAttribArray(positionLoc);
-        _gl.VertexAttribPointer(positionLoc, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), (void*) 0);
-        
-        // Cleanup bindings
-        _gl.BindVertexArray(0);
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
-        _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, 0);
+        // Cleanup
+        _vao.Unbind();
+        _vbo.Unbind();
+        _ebo.Unbind();
     }
 
 
@@ -185,15 +116,23 @@ void main()
     {
         _gl.Clear(ClearBufferMask.ColorBufferBit);
         
-        _gl.BindVertexArray(_vao);
-        _gl.UseProgram(_program);
-        _gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, (void*) 0);
+        _shader.Use();
+        _vao.Bind();
+        _gl.DrawElements(PrimitiveType.Triangles, _vao.IndexCount, DrawElementsType.UnsignedInt, (void*) 0);
     }
     
 
     private static void OnFramebufferResize(Vector2D<int> newSize)
     {
         _gl.Viewport(newSize);
+    }
+
+    private static void OnClose()
+    {
+        _shader.Dispose();
+        _vbo.Dispose();
+        _ebo.Dispose();
+        _vao.Dispose();
     }
 
 
@@ -239,13 +178,13 @@ void main()
         // Register debug callback
         gl.DebugMessageCallback(
             (
-                GLEnum source,
-                GLEnum type,
-                int id,
-                GLEnum severity,
-                int length,
-                nint message,
-                nint userParam) =>
+                source,
+                type,
+                id,
+                severity,
+                length,
+                message,
+                userParam) =>
             {
                 string msg = SilkMarshal.PtrToString(message, NativeStringEncoding.UTF8) ?? string.Empty;
 

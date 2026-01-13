@@ -16,4 +16,11 @@
       <PackageReference Include="Silk.NET.Windowing" Version="2.22.0" />
     </ItemGroup>
 
+    <!-- Copy the "assets" folder to the output directory always -->
+    <ItemGroup>
+      <Content Include="assets\**">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
 </Project>
