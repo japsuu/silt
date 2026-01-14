@@ -6,6 +6,7 @@ using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.Graphics;
 using Shader = Silt.Graphics.Shader;
+using Texture = Silt.Graphics.Texture;
 
 namespace Silt;
 
@@ -19,21 +20,23 @@ internal static class Program
     private static VertexArrayObject<float, uint> _vao = null!;
     private static BufferObject<float> _vbo = null!;
     private static BufferObject<uint> _ebo = null!;
+    private static Texture _texture = null!;
     private static Shader _shader = null!;
 
     private static readonly float[] QuadVertices =
     [
+        // X, Y, Z, U, V
         // Top-right
-        0.5f, 0.5f, 0.0f,
+        0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
 
         // Bottom-right
-        0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f, 1.0f, 1.0f,
 
         // Bottom-left
-        -0.5f, -0.5f, 0.0f,
+        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
 
         // Top-left
-        -0.5f, 0.5f, 0.0f
+        -0.5f, 0.5f, 0.0f, 0.0f, 0.0f
     ];
 
     private static readonly uint[] QuadIndices =
@@ -89,16 +92,20 @@ internal static class Program
         foreach (IKeyboard k in input.Keyboards)
             k.KeyDown += KeyDown;
 
-        // Create shader
-        _shader = new Shader(_gl, "assets/base.vert", "assets/base.frag");
-
         // Create buffers
         _vbo = new BufferObject<float>(_gl, QuadVertices, BufferTargetARB.ArrayBuffer);
         _ebo = new BufferObject<uint>(_gl, QuadIndices, BufferTargetARB.ElementArrayBuffer);
 
         // Create VAO
         _vao = new VertexArrayObject<float, uint>(_gl, _vbo, _ebo);
-        _vao.SetVertexAttributePointer(0, 3, VertexAttribPointerType.Float, 3, 0);
+        _vao.SetVertexAttributePointer(0, 3, VertexAttribPointerType.Float, 5, 0);
+        _vao.SetVertexAttributePointer(1, 2, VertexAttribPointerType.Float, 5, 3);
+
+        // Create shader
+        _shader = new Shader(_gl, "assets/base.vert", "assets/base.frag");
+        
+        // Create texture
+        _texture = new Texture(_gl, "assets/tex_proto_wall.png");
         
         // Cleanup
         _vao.Unbind();
@@ -116,8 +123,12 @@ internal static class Program
     {
         _gl.Clear(ClearBufferMask.ColorBufferBit);
         
-        _shader.Use();
         _vao.Bind();
+        
+        _shader.Use();
+
+        _shader.SetUniform("u_texture", _texture, TextureUnit.Texture0);
+        
         _gl.DrawElements(PrimitiveType.Triangles, _vao.IndexCount, DrawElementsType.UnsignedInt, (void*) 0);
     }
     
@@ -126,10 +137,12 @@ internal static class Program
     {
         _gl.Viewport(newSize);
     }
+    
 
     private static void OnClose()
     {
         _shader.Dispose();
+        _texture.Dispose();
         _vbo.Dispose();
         _ebo.Dispose();
         _vao.Dispose();
