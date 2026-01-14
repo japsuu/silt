@@ -4,6 +4,7 @@ using Silk.NET.OpenGL;
 namespace Silt.Graphics;
 
 public class ShaderCompilationException(string message) : Exception(message);
+
 public class ShaderLinkingException(string message) : Exception(message);
 
 /// <summary>
@@ -46,6 +47,90 @@ public sealed class Shader : GraphicsResource
         Gl.DetachShader(Handle, fragmentShader);
         Gl.DeleteShader(vertexShader);
         Gl.DeleteShader(fragmentShader);
+    }
+
+
+    /// <summary>
+    /// Gets the location of a uniform variable in the shader program.
+    /// Use to cache uniform locations for setting uniform values.
+    /// </summary>
+    /// <param name="name">The name of the uniform variable.</param>
+    /// <returns>The location of the uniform variable.</returns>
+    /// <exception cref="ArgumentException">Thrown if the uniform variable is not found.</exception>
+    public int GetUniformLocation(string name)
+    {
+        int location = Gl.GetUniformLocation(Handle, name);
+        return location != -1
+            ? location
+            : throw new ArgumentException($"Uniform '{name}' not found in shader program.");
+    }
+
+
+    public void SetUniform(int location, int value) => Gl.Uniform1(location, value);
+
+    public void SetUniform(int location, float value) => Gl.Uniform1(location, value);
+
+
+    public void SetUniform(int location, TextureUnit value)
+    {
+        int valueInt = (int)value - (int)TextureUnit.Texture0;
+        Gl.Uniform1(location, valueInt);
+    }
+
+
+    public void SetUniform(int location, Texture texture, TextureUnit unit)
+    {
+        texture.Bind(unit);
+        SetUniform(location, unit);
+    }
+
+
+    /// <summary>
+    /// Sets a uniform variable in the shader program.
+    /// Consider caching uniform locations with <see cref="GetUniformLocation(string)"/> and using <see cref="SetUniform(int, int)"/> instead.
+    /// Ensure the shader program is active with <see cref="Use()"/> before setting uniforms.
+    /// </summary>
+    public void SetUniform(string name, int value)
+    {
+        int location = GetUniformLocation(name);
+        Gl.Uniform1(location, value);
+    }
+
+
+    /// <summary>
+    /// Sets a uniform variable in the shader program.
+    /// Consider caching uniform locations with <see cref="GetUniformLocation(string)"/> and using <see cref="SetUniform(int, float)"/> instead.
+    /// Ensure the shader program is active with <see cref="Use()"/> before setting uniforms.
+    /// </summary>
+    public void SetUniform(string name, float value)
+    {
+        int location = GetUniformLocation(name);
+        Gl.Uniform1(location, value);
+    }
+
+
+    /// <summary>
+    /// Sets a uniform variable in the shader program.
+    /// Consider caching uniform locations with <see cref="GetUniformLocation(string)"/> and using <see cref="SetUniform(int, TextureUnit)"/> instead.
+    /// Ensure the shader program is active with <see cref="Use()"/> before setting uniforms.
+    /// </summary>
+    public void SetUniform(string name, TextureUnit value)
+    {
+        int location = GetUniformLocation(name);
+        int valueInt = (int)value - (int)TextureUnit.Texture0;
+        Gl.Uniform1(location, valueInt);
+    }
+
+
+    /// <summary>
+    /// Sets a texture uniform by binding the texture to the specified texture unit and updating the uniform.
+    /// Consider caching uniform locations with <see cref="GetUniformLocation(string)"/> and using <see cref="SetUniform(int, Texture, TextureUnit)"/> instead.
+    /// Ensure the shader program is active with <see cref="Use()"/> before setting uniforms.
+    /// </summary>
+    public void SetUniform(string name, Texture texture, TextureUnit unit)
+    {
+        texture.Bind(unit);
+        SetUniform(name, unit);
     }
 
 
