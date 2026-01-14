@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.Numerics;
 using Silk.NET.Core.Native;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -22,6 +23,7 @@ internal static class Program
     private static BufferObject<uint> _ebo = null!;
     private static Texture _texture = null!;
     private static Shader _shader = null!;
+    private static Transform[] _transforms = new Transform[4];
 
     private static readonly float[] QuadVertices =
     [
@@ -111,6 +113,22 @@ internal static class Program
         _vao.Unbind();
         _vbo.Unbind();
         _ebo.Unbind();
+        
+        
+        // Translation.
+        _transforms[0] = new Transform();
+        _transforms[0].Position = new Vector3(0.5f, 0.5f, 0f);
+        // Rotation.
+        _transforms[1] = new Transform();
+        _transforms[1].Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 1f);
+        // Scaling.
+        _transforms[2] = new Transform();
+        _transforms[2].Scale = 0.5f;
+        // Mixed transformation.
+        _transforms[3] = new Transform();
+        _transforms[3].Position = new Vector3(-0.5f, 0.5f, 0f);
+        _transforms[3].Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 1f);
+        _transforms[3].Scale = 0.5f;
     }
 
 
@@ -128,8 +146,12 @@ internal static class Program
         _shader.Use();
 
         _shader.SetUniform("u_texture", _texture, TextureUnit.Texture0);
-        
-        _gl.DrawElements(PrimitiveType.Triangles, _vao.IndexCount, DrawElementsType.UnsignedInt, (void*) 0);
+
+        foreach (Transform t in _transforms)
+        {
+            _shader.SetUniform("u_model", t.ViewMatrix);
+            _gl.DrawElements(PrimitiveType.Triangles, _vao.IndexCount, DrawElementsType.UnsignedInt, (void*) 0);
+        }
     }
     
 

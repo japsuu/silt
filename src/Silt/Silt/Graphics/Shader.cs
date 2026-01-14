@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Numerics;
+using System.Text;
 using Silk.NET.OpenGL;
 
 namespace Silt.Graphics;
@@ -66,9 +67,16 @@ public sealed class Shader : GraphicsResource
     }
 
 
-    public void SetUniform(int location, int value) => Gl.Uniform1(location, value);
+    public void SetUniform(int location, int value)
+    {
+        Gl.Uniform1(location, value);
+    }
 
-    public void SetUniform(int location, float value) => Gl.Uniform1(location, value);
+
+    public void SetUniform(int location, float value)
+    {
+        Gl.Uniform1(location, value);
+    }
 
 
     public void SetUniform(int location, TextureUnit value)
@@ -76,12 +84,18 @@ public sealed class Shader : GraphicsResource
         int valueInt = (int)value - (int)TextureUnit.Texture0;
         Gl.Uniform1(location, valueInt);
     }
-
-
+    
+    
     public void SetUniform(int location, Texture texture, TextureUnit unit)
     {
         texture.Bind(unit);
         SetUniform(location, unit);
+    }
+    
+    
+    public unsafe void SetUniform(int location, Matrix4x4 value)
+    {
+        Gl.UniformMatrix4(location, 1, false, (float*)&value);
     }
 
 
@@ -131,6 +145,18 @@ public sealed class Shader : GraphicsResource
     {
         texture.Bind(unit);
         SetUniform(name, unit);
+    }
+    
+    
+    /// <summary>
+    /// Sets a uniform variable in the shader program.
+    /// Consider caching uniform locations with <see cref="GetUniformLocation(string)"/> and using <see cref="SetUniform(int, Matrix4x4)"/> instead.
+    /// Ensure the shader program is active with <see cref="Use()"/> before setting uniforms.
+    /// </summary>
+    public unsafe void SetUniform(string name, Matrix4x4 value)
+    {
+        int location = GetUniformLocation(name);
+        Gl.UniformMatrix4(location, 1, false, (float*)&value);
     }
 
 
