@@ -6,6 +6,7 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.Graphics;
+using Silt.Platform;
 using Silt.Utils;
 using Shader = Silt.Graphics.Shader;
 using Texture = Silt.Graphics.Texture;
@@ -132,6 +133,10 @@ internal static class Program
 #endif
         _gl.ClearColor(Color.Magenta);
         _gl.Enable(GLEnum.DepthTest);
+        
+        // Setup platform info
+        SystemInfo.Initialize();
+        WindowInfo.Initialize(_window);
 
         // Setup input
         IInputContext input = _window.CreateInput();
