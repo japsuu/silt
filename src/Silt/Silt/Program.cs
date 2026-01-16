@@ -6,6 +6,7 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.Graphics;
+using Silt.InputManagement;
 using Silt.Platform;
 using Silt.Utils;
 using Shader = Silt.Graphics.Shader;
@@ -135,8 +136,7 @@ internal static class Program
 
         // Setup input
         IInputContext input = _window.CreateInput();
-        foreach (IKeyboard k in input.Keyboards)
-            k.KeyDown += KeyDown;
+        Input.Initialize(input);
 
         // Create buffers
         _vbo = new BufferObject<float>(_gl, _cubeVertices, BufferTargetARB.ArrayBuffer);
@@ -183,6 +183,11 @@ internal static class Program
             float rotDegrees = (float) (_window.Time * 100);
             t.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathUtil.DegreesToRadians(rotDegrees)) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathUtil.DegreesToRadians(rotDegrees * 0.6f));
         }
+        
+        if (Input.IsKeyDown(Key.Escape))
+            _window.Close();
+        
+        Input.Update();
     }
 
 
@@ -225,13 +230,6 @@ internal static class Program
         _vbo.Dispose();
         _ebo.Dispose();
         _vao.Dispose();
-    }
-
-
-    private static void KeyDown(IKeyboard keyboard, Key key, int keyCode)
-    {
-        if (key == Key.Escape)
-            _window.Close();
     }
 
 
