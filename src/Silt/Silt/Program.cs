@@ -27,12 +27,7 @@ internal static class Program
     private static Shader _shader = null!;
     private static readonly Transform[] _transforms = new Transform[3];
 
-    // Setup camera position and orientation
-    private static readonly Vector3 _cameraPosition = new(0.0f, 0.0f, 3.0f);
-    private static readonly Vector3 _cameraTarget = Vector3.Zero;
-    private static readonly Vector3 _cameraDirection = Vector3.Normalize(_cameraPosition - _cameraTarget);
-    private static readonly Vector3 _cameraRight = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, _cameraDirection));
-    private static readonly Vector3 _cameraUp = Vector3.Cross(_cameraDirection, _cameraRight);
+    private static Camera _camera = null!;
 
     private static readonly float[] _cubeVertices =
     [
@@ -163,13 +158,16 @@ internal static class Program
         _vbo.Unbind();
         _ebo.Unbind();
         
-        // Translation.
+        // Setup camera
+        _camera = new Camera(new Vector3(0f, 0f, 3f));
+        
+        // Translation
         _transforms[0] = new Transform();
         _transforms[0].Position = new Vector3(0.5f, 0.5f, 0f);
-        // Scaling.
+        // Scaling
         _transforms[1] = new Transform();
         _transforms[1].Scale = 0.5f;
-        // Mixed transformation.
+        // Mixed transformation
         _transforms[2] = new Transform();
         _transforms[2].Position = new Vector3(-0.5f, 0.5f, 0f);
         _transforms[2].Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 1f);
@@ -199,7 +197,7 @@ internal static class Program
         
         Vector2D<int> size = _window.FramebufferSize;
 
-        Matrix4x4 view = Matrix4x4.CreateLookAt(_cameraPosition, _cameraTarget, _cameraUp);
+        Matrix4x4 view = Matrix4x4.CreateLookAt(_camera.Position, Vector3.Zero, _camera.Up);
         Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathUtil.DegreesToRadians(45.0f), (float)size.X / size.Y, 0.1f, 100.0f);
 
         foreach (Transform t in _transforms)
