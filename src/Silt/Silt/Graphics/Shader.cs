@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Text;
 using Silk.NET.OpenGL;
+using Silt.Utils;
 
 namespace Silt.Graphics;
 
@@ -14,17 +15,22 @@ public class ShaderLinkingException(string message) : Exception(message);
 /// </summary>
 public sealed class Shader : GraphicsResource
 {
+    public readonly string Name;
+
+
     /// <summary>
     /// Creates a new shader program from the specified vertex and fragment shader file paths.
     /// </summary>
     /// <param name="gl">The OpenGL context.</param>
+    /// <param name="name">The name of the shader program.</param>
     /// <param name="vertexPath">The file path to the vertex shader source.</param>
     /// <param name="fragmentPath">The file path to the fragment shader source.</param>
     /// <exception cref="FileNotFoundException">Thrown if a shader file cannot be found.</exception>
     /// <exception cref="ShaderCompilationException">Thrown if a shader fails to compile.</exception>
     /// <exception cref="ShaderLinkingException">Thrown if the shader program fails to link.</exception>
-    public Shader(GL gl, string vertexPath, string fragmentPath) : base(gl)
+    public Shader(GL gl, string name, string vertexPath, string fragmentPath) : base(gl)
     {
+        Name = name;
         string vertexSource = LoadAndPreprocessShader(vertexPath);
         string fragmentSource = LoadAndPreprocessShader(fragmentPath);
 
@@ -57,13 +63,12 @@ public sealed class Shader : GraphicsResource
     /// </summary>
     /// <param name="name">The name of the uniform variable.</param>
     /// <returns>The location of the uniform variable.</returns>
-    /// <exception cref="ArgumentException">Thrown if the uniform variable is not found.</exception>
     public int GetUniformLocation(string name)
     {
         int location = Gl.GetUniformLocation(Handle, name);
-        return location != -1
-            ? location
-            : throw new ArgumentException($"Uniform '{name}' not found in shader program.");
+        if (location == -1)
+            LoggerUtil.LogMissingUniformOnce(Name, name);
+        return location;
     }
 
 
