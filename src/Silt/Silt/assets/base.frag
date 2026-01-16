@@ -1,8 +1,8 @@
 ﻿in vec2 f_uv;
 
-out vec4 FragColor;
-
 uniform sampler2D u_texture;
+
+out vec4 FragColor;
 
 void main()
 {

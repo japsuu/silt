@@ -6,6 +6,7 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.Graphics;
+using Silt.Utils;
 using Shader = Silt.Graphics.Shader;
 using Texture = Silt.Graphics.Texture;
 
@@ -23,28 +24,70 @@ internal static class Program
     private static BufferObject<uint> _ebo = null!;
     private static Texture _texture = null!;
     private static Shader _shader = null!;
-    private static Transform[] _transforms = new Transform[4];
+    private static readonly Transform[] _transforms = new Transform[3];
 
-    private static readonly float[] QuadVertices =
+    // Setup camera position and orientation
+    private static readonly Vector3 _cameraPosition = new(0.0f, 0.0f, 3.0f);
+    private static readonly Vector3 _cameraTarget = Vector3.Zero;
+    private static readonly Vector3 _cameraDirection = Vector3.Normalize(_cameraPosition - _cameraTarget);
+    private static readonly Vector3 _cameraRight = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, _cameraDirection));
+    private static readonly Vector3 _cameraUp = Vector3.Cross(_cameraDirection, _cameraRight);
+
+    private static readonly float[] _cubeVertices =
     [
         // X, Y, Z, U, V
-        // Top-right
-        0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-
-        // Bottom-right
-        0.5f, -0.5f, 0.0f, 1.0f, 1.0f,
-
-        // Bottom-left
-        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-
-        // Top-left
-        -0.5f, 0.5f, 0.0f, 0.0f, 0.0f
+        // Z+ (back)
+        -0.5f, -0.5f, 0.5f,  0.0f, 0.0f,
+        0.5f, -0.5f, 0.5f,  1.0f, 0.0f,
+        0.5f,  0.5f, 0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, 0.5f,  0.0f, 1.0f,
+        // Z- (front)
+        0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        // X+ (right)
+        0.5f, -0.5f, 0.5f,  0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        0.5f,  0.5f, 0.5f,  0.0f, 1.0f,
+        // X- (left)
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, 0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, 0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        // Y+ (top)
+        -0.5f, 0.5f, 0.5f,  0.0f, 0.0f,
+        0.5f, 0.5f, 0.5f,  1.0f, 0.0f,
+        0.5f, 0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, 0.5f, -0.5f,  0.0f, 1.0f,
+        // Y- (bottom)
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+        0.5f, -0.5f, 0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, 0.5f,  0.0f, 1.0f,
     ];
 
-    private static readonly uint[] QuadIndices =
+    private static readonly uint[] _cubeIndices =
     [
-        0, 1, 3,
-        1, 2, 3
+        // Z+
+        0, 1, 2,
+        0, 2, 3,
+        // Z-
+        4, 5, 6,
+        4, 6, 7,
+        // X+
+        8, 9, 10,
+        8, 10, 11,
+        // X-
+        12, 13, 14,
+        12, 14, 15,
+        // Y+
+        16, 17, 18,
+        16, 18, 19,
+        // Y-
+        20, 21, 22,
+        20, 22, 23
     ];
 
     
@@ -88,6 +131,7 @@ internal static class Program
         SetupOpenGlLogging(_gl);
 #endif
         _gl.ClearColor(Color.Magenta);
+        _gl.Enable(GLEnum.DepthTest);
 
         // Setup input
         IInputContext input = _window.CreateInput();
@@ -95,8 +139,8 @@ internal static class Program
             k.KeyDown += KeyDown;
 
         // Create buffers
-        _vbo = new BufferObject<float>(_gl, QuadVertices, BufferTargetARB.ArrayBuffer);
-        _ebo = new BufferObject<uint>(_gl, QuadIndices, BufferTargetARB.ElementArrayBuffer);
+        _vbo = new BufferObject<float>(_gl, _cubeVertices, BufferTargetARB.ArrayBuffer);
+        _ebo = new BufferObject<uint>(_gl, _cubeIndices, BufferTargetARB.ElementArrayBuffer);
 
         // Create VAO
         _vao = new VertexArrayObject<float, uint>(_gl, _vbo, _ebo);
@@ -104,7 +148,7 @@ internal static class Program
         _vao.SetVertexAttributePointer(1, 2, VertexAttribPointerType.Float, 5, 3);
 
         // Create shader
-        _shader = new Shader(_gl, "assets/base.vert", "assets/base.frag");
+        _shader = new Shader(_gl, "base", "assets/base.vert", "assets/base.frag");
         
         // Create texture
         _texture = new Texture(_gl, "assets/tex_proto_wall.png");
@@ -114,43 +158,53 @@ internal static class Program
         _vbo.Unbind();
         _ebo.Unbind();
         
-        
         // Translation.
         _transforms[0] = new Transform();
         _transforms[0].Position = new Vector3(0.5f, 0.5f, 0f);
-        // Rotation.
-        _transforms[1] = new Transform();
-        _transforms[1].Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 1f);
         // Scaling.
-        _transforms[2] = new Transform();
-        _transforms[2].Scale = 0.5f;
+        _transforms[1] = new Transform();
+        _transforms[1].Scale = 0.5f;
         // Mixed transformation.
-        _transforms[3] = new Transform();
-        _transforms[3].Position = new Vector3(-0.5f, 0.5f, 0f);
-        _transforms[3].Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 1f);
-        _transforms[3].Scale = 0.5f;
+        _transforms[2] = new Transform();
+        _transforms[2].Position = new Vector3(-0.5f, 0.5f, 0f);
+        _transforms[2].Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 1f);
+        _transforms[2].Scale = 0.5f;
     }
 
 
     private static void OnUpdate(double deltaTime)
     {
+        foreach (Transform t in _transforms)
+        {
+            // Convert time to radians for rotation
+            float rotDegrees = (float) (_window.Time * 100);
+            t.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathUtil.DegreesToRadians(rotDegrees)) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathUtil.DegreesToRadians(rotDegrees * 0.6f));
+        }
     }
 
 
     private static unsafe void OnRender(double deltaTime)
     {
-        _gl.Clear(ClearBufferMask.ColorBufferBit);
+        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         
         _vao.Bind();
         
         _shader.Use();
-
         _shader.SetUniform("u_texture", _texture, TextureUnit.Texture0);
+        
+        Vector2D<int> size = _window.FramebufferSize;
+
+        Matrix4x4 view = Matrix4x4.CreateLookAt(_cameraPosition, _cameraTarget, _cameraUp);
+        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathUtil.DegreesToRadians(45.0f), (float)size.X / size.Y, 0.1f, 100.0f);
 
         foreach (Transform t in _transforms)
         {
-            _shader.SetUniform("u_model", t.ViewMatrix);
-            _gl.DrawElements(PrimitiveType.Triangles, _vao.IndexCount, DrawElementsType.UnsignedInt, (void*) 0);
+            Matrix4x4 mv = t.ModelMatrix * view;
+            Matrix4x4 mvp = mv * projection;
+            _shader.SetUniform("u_mat_m", t.ModelMatrix);
+            _shader.SetUniform("u_mat_mv", mv);
+            _shader.SetUniform("u_mat_mvp", mvp);
+            _gl.DrawElements(PrimitiveType.Triangles, (uint)_cubeIndices.Length, DrawElementsType.UnsignedInt, null);
         }
     }
     
