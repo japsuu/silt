@@ -6,4 +6,10 @@ public static class MathUtil
     {
         return MathF.PI / 180f * degrees;
     }
+    
+    
+    public static float RadiansToDegrees(float radians)
+    {
+        return 180f / MathF.PI * radians;
+    }
 }

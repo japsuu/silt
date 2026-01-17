@@ -5,6 +5,7 @@ using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using Silt.CameraManagement;
 using Silt.Graphics;
 using Silt.InputManagement;
 using Silt.Platform;
@@ -28,41 +29,44 @@ internal static class Program
     private static Shader _shader = null!;
     private static readonly Transform[] _transforms = new Transform[3];
 
-    private static Camera _camera = null!;
-
     private static readonly float[] _cubeVertices =
     [
         // X, Y, Z, U, V
         // Z+ (back)
-        -0.5f, -0.5f, 0.5f,  0.0f, 0.0f,
-        0.5f, -0.5f, 0.5f,  1.0f, 0.0f,
-        0.5f,  0.5f, 0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, 0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
+
         // Z- (front)
-        0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
+        -0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
+
         // X+ (right)
-        0.5f, -0.5f, 0.5f,  0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        0.5f,  0.5f, 0.5f,  0.0f, 1.0f,
+        0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
+
         // X- (left)
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-        -0.5f, -0.5f, 0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f, 0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+        -0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
+        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
+
         // Y+ (top)
-        -0.5f, 0.5f, 0.5f,  0.0f, 0.0f,
-        0.5f, 0.5f, 0.5f,  1.0f, 0.0f,
-        0.5f, 0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f, 0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f, 0.0f, 0.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
+
         // Y- (bottom)
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-        0.5f, -0.5f, 0.5f,  1.0f, 1.0f,
-        -0.5f, -0.5f, 0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
+        0.5f, -0.5f, 0.5f, 1.0f, 1.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 1.0f
     ];
 
     private static readonly uint[] _cubeIndices =
@@ -70,24 +74,29 @@ internal static class Program
         // Z+
         0, 1, 2,
         0, 2, 3,
+
         // Z-
         4, 5, 6,
         4, 6, 7,
+
         // X+
         8, 9, 10,
         8, 10, 11,
+
         // X-
         12, 13, 14,
         12, 14, 15,
+
         // Y+
         16, 17, 18,
         16, 18, 19,
+
         // Y-
         20, 21, 22,
         20, 22, 23
     ];
 
-    
+
     private static void Main(string[] args)
     {
         SetupLogging();
@@ -129,7 +138,7 @@ internal static class Program
 #endif
         _gl.ClearColor(Color.Magenta);
         _gl.Enable(GLEnum.DepthTest);
-        
+
         // Setup platform info
         SystemInfo.Initialize();
         WindowInfo.Initialize(_window);
@@ -149,24 +158,26 @@ internal static class Program
 
         // Create shader
         _shader = new Shader(_gl, "base", "assets/base.vert", "assets/base.frag");
-        
+
         // Create texture
         _texture = new Texture(_gl, "assets/tex_proto_wall.png");
-        
+
         // Cleanup
         _vao.Unbind();
         _vbo.Unbind();
         _ebo.Unbind();
-        
+
         // Setup camera
-        _camera = new Camera(new Vector3(0f, 0f, 3f));
-        
+        CameraManager.Initialize(new Camera(new Vector3(0f, 0f, 3f)), new FreeCameraController());
+
         // Translation
         _transforms[0] = new Transform();
         _transforms[0].Position = new Vector3(0.5f, 0.5f, 0f);
+
         // Scaling
         _transforms[1] = new Transform();
         _transforms[1].Scale = 0.5f;
+
         // Mixed transformation
         _transforms[2] = new Transform();
         _transforms[2].Position = new Vector3(-0.5f, 0.5f, 0f);
@@ -180,30 +191,30 @@ internal static class Program
         foreach (Transform t in _transforms)
         {
             // Convert time to radians for rotation
-            float rotDegrees = (float) (_window.Time * 100);
-            t.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathUtil.DegreesToRadians(rotDegrees)) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathUtil.DegreesToRadians(rotDegrees * 0.6f));
+            float rotDegrees = (float)(_window.Time * 100);
+            t.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathUtil.DegreesToRadians(rotDegrees)) *
+                         Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathUtil.DegreesToRadians(rotDegrees * 0.6f));
         }
-        
-        if (Input.IsKeyDown(Key.Escape))
+
+        if (Input.GetKeyHoldTime(Key.Escape) > 3)
             _window.Close();
-        
-        Input.Update();
+
+        CameraManager.Update(deltaTime);
+        Input.Update(deltaTime);
     }
 
 
     private static unsafe void OnRender(double deltaTime)
     {
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-        
+
         _vao.Bind();
-        
+
         _shader.Use();
         _shader.SetUniform("u_texture", _texture, TextureUnit.Texture0);
-        
-        Vector2D<int> size = _window.FramebufferSize;
 
-        Matrix4x4 view = Matrix4x4.CreateLookAt(_camera.Position, Vector3.Zero, _camera.Up);
-        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(MathUtil.DegreesToRadians(45.0f), (float)size.X / size.Y, 0.1f, 100.0f);
+        Matrix4x4 view = CameraManager.MainCamera.GetViewMatrix();
+        Matrix4x4 projection = CameraManager.MainCamera.GetProjectionMatrix();
 
         foreach (Transform t in _transforms)
         {
@@ -215,13 +226,13 @@ internal static class Program
             _gl.DrawElements(PrimitiveType.Triangles, (uint)_cubeIndices.Length, DrawElementsType.UnsignedInt, null);
         }
     }
-    
+
 
     private static void OnFramebufferResize(Vector2D<int> newSize)
     {
         _gl.Viewport(newSize);
     }
-    
+
 
     private static void OnClose()
     {

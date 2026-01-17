@@ -2,7 +2,7 @@
 using Silt.Platform;
 using Silt.Utils;
 
-namespace Silt;
+namespace Silt.CameraManagement;
 
 /// <summary>
 /// Represents a 3D camera with position, orientation, and projection settings.
