@@ -1,14 +1,18 @@
 ﻿using System.Drawing;
 using System.Numerics;
+using ImGuiNET;
 using Silk.NET.Core.Native;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
+using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using Silt.CameraManagement;
 using Silt.Graphics;
 using Silt.InputManagement;
 using Silt.Platform;
+using Silt.UI;
+using Silt.UI.Windows;
 using Silt.Utils;
 using Shader = Silt.Graphics.Shader;
 using Texture = Silt.Graphics.Texture;
@@ -28,6 +32,9 @@ internal static class Program
     private static Texture _texture = null!;
     private static Shader _shader = null!;
     private static readonly Transform[] _transforms = new Transform[3];
+
+    private static ImGuiController _imgui = null!;
+    private static UiManager _ui = null!;
 
     private static readonly float[] _cubeVertices =
     [
@@ -147,6 +154,16 @@ internal static class Program
         IInputContext input = _window.CreateInput();
         Input.Initialize(input);
 
+        // Setup ImGui + UI
+        _imgui = new ImGuiController(_gl, _window, input, () =>
+        {
+            ImGuiIOPtr io = ImGui.GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+        });
+        _ui = new UiManager();
+        _ui.Register(new StatsWindow());
+        _ui.Initialize();
+
         // Create buffers
         _vbo = new BufferObject<float>(_gl, _cubeVertices, BufferTargetARB.ArrayBuffer);
         _ebo = new BufferObject<uint>(_gl, _cubeIndices, BufferTargetARB.ElementArrayBuffer);
@@ -199,6 +216,11 @@ internal static class Program
         if (Input.GetKeyHoldTime(Key.Escape) > 3)
             _window.Close();
 
+        if (Input.WasKeyPressed(Key.F1))
+            UiManager.ToggleUiVisibility();
+
+        _ui.Update(deltaTime);
+
         CameraManager.Update(deltaTime);
         Input.Update(deltaTime);
     }
@@ -206,6 +228,8 @@ internal static class Program
 
     private static unsafe void OnRender(double deltaTime)
     {
+        _imgui.Update((float)deltaTime);
+        _ui.Draw(deltaTime);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         _vao.Bind();
@@ -225,22 +249,29 @@ internal static class Program
             _shader.SetUniform("u_mat_mvp", mvp);
             _gl.DrawElements(PrimitiveType.Triangles, (uint)_cubeIndices.Length, DrawElementsType.UnsignedInt, null);
         }
-    }
 
-
-    private static void OnFramebufferResize(Vector2D<int> newSize)
-    {
-        _gl.Viewport(newSize);
+        // Render ImGui on top of the scene.
+        _imgui.Render();
     }
 
 
     private static void OnClose()
     {
+        _ui.Dispose();
+        _imgui.Dispose();
+
         _shader.Dispose();
         _texture.Dispose();
         _vbo.Dispose();
         _ebo.Dispose();
         _vao.Dispose();
+    }
+
+
+    private static void OnFramebufferResize(Vector2D<int> newSize)
+    {
+        // Keep GL viewport in sync with the framebuffer.
+        _gl.Viewport(newSize);
     }
 
 
@@ -254,6 +285,7 @@ internal static class Program
         {
             Size = new Vector2D<int>(720, 720),
             Title = "Silt",
+            VSync = false,
             API = new GraphicsAPI(ContextAPI.OpenGL, ContextProfile.Core, flags, new APIVersion(3, 3))
         };
 

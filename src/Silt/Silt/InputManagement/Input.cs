@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using Serilog;
 using Silk.NET.Input;
 
 namespace Silt.InputManagement;
@@ -273,8 +272,6 @@ public static class Input
                 // Keep MousePosition fixed
                 break;
         }
-
-        Log.Debug("Mouse moved to {Position} with delta {Delta} (Silk position {Input})", MousePosition, MouseDelta, position);
     }
 
 
