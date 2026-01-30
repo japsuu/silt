@@ -6,7 +6,7 @@ namespace Silt.UI.Windows;
 public sealed class StatsWindow : IUiWindow
 {
     public string Title => "Stats";
-    public ImGuiWindowFlags Flags => ImGuiWindowFlags.None;
+    public ImGuiWindowFlags Flags => ImGuiWindowFlags.AlwaysAutoResize;
     public bool IsOpen { get; set; } = true;
 
     private float _smoothedFps;
