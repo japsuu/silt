@@ -68,7 +68,8 @@ public sealed class SiltEngine
         _gl.Enable(GLEnum.DepthTest);
 
         // Setup platform info
-        SystemInfo.Initialize();
+        MemoryInfo.Initialize();
+        SystemInfo.Initialize(_gl);
         WindowInfo.Initialize(_window);
 
         // Setup input
