@@ -4,6 +4,7 @@ using Silk.NET.Windowing;
 using Silt.CameraManagement;
 using Silt.Graphics;
 using Silt.Utils;
+using Silt.Metrics;
 using Shader = Silt.Graphics.Shader;
 using Texture = Silt.Graphics.Texture;
 
@@ -191,6 +192,10 @@ public sealed class TestScene : Scene
             _shader.SetUniform(_uMatMVP, mvp);
 
             GL.DrawElements(PrimitiveType.Triangles, (uint)_cubeIndices.Length, DrawElementsType.UnsignedInt, null);
+
+            PerfMonitor.AddDrawCalls(1);
+            PerfMonitor.AddTriangles(_cubeIndices.Length / 3);
+            PerfMonitor.AddVertices(_cubeVertices.Length / 5);
         }
     }
 }

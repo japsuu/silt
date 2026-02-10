@@ -11,6 +11,7 @@ using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using Silt.CameraManagement;
 using Silt.InputManagement;
+using Silt.Metrics;
 using Silt.Platform;
 using Silt.UI;
 using Silt.UI.Windows;
@@ -19,22 +20,22 @@ namespace Silt;
 
 public sealed class SiltEngine
 {
-    private string[] _args = null!;
+    private AppOptions _options = null!;
     private IWindow _window = null!;
     private GL _gl = null!;
     private ImGuiController _imguiController = null!;
     private UiManager _uiManager = null!;
     private Scene _currentScene = null!;
     private double _fixedFrameAccumulator;
+    private bool _isExitRequested;
 
 
-    public void Run(string[] args)
+    public void Run(AppOptions? options = null)
     {
         try
         {
-            _args = args;
+            _options = options ?? new AppOptions();
             Log.Information("Starting Silt engine...");
-            Log.Debug("Args: {Args}", _args);
 
             _window = CreateWindow();
             _window.Load += OnLoad;
@@ -71,6 +72,24 @@ public sealed class SiltEngine
         MemoryInfo.Initialize();
         SystemInfo.Initialize(_gl);
         WindowInfo.Initialize(_window);
+        
+        // Setup performance metrics
+        if (_options.BenchmarkEnabled)
+        {
+            string outputPath = string.IsNullOrWhiteSpace(_options.BenchmarkOutputFilePath)
+                ? "benchmark_results.txt"
+                : _options.BenchmarkOutputFilePath!;
+
+            PerfMonitor.Initialize(new BenchmarkConfig(
+                outputPath,
+                onComplete: () => _isExitRequested = true,
+                warmUpFrameCount: _options.BenchmarkWarmUpFrameCount,
+                sampleFrameCount: _options.BenchmarkSampleFrameCount));
+        }
+        else
+        {
+            PerfMonitor.Initialize();
+        }
 
         // Setup input
         IInputContext input = _window.CreateInput();
@@ -96,6 +115,14 @@ public sealed class SiltEngine
 
     private void OnUpdate(double deltaTime)
     {
+        if (_isExitRequested)
+        {
+            _window.Close();
+            return;
+        }
+        
+        PerfMonitor.BeginFrame(deltaTime);
+
         _fixedFrameAccumulator += deltaTime;
         
         while (_fixedFrameAccumulator >= SiltConstants.FIXED_DELTA_TIME)
@@ -156,12 +183,12 @@ public sealed class SiltEngine
 
     private void InternalRender(double deltaTime)
     {
-        _uiManager.Draw(deltaTime);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         _currentScene.Render(deltaTime);
 
         // Render ImGui on top of the scene.
+        _uiManager.Draw(deltaTime);
         _imguiController.Render();
     }
 

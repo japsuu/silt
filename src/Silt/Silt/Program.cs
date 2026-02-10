@@ -9,8 +9,10 @@ internal static class Program
     {
         SetupLogging();
 
+        AppOptions options = ArgsParser.Parse(args);
+
         SiltEngine engine = new();
-        engine.Run(args);
+        engine.Run(options);
     }
 
 
