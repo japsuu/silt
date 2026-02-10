@@ -21,6 +21,7 @@ namespace Silt;
 public sealed class SiltEngine
 {
     private AppOptions _options = null!;
+    private SceneRegistry _benchmarkSceneRegistry = null!;
     private IWindow _window = null!;
     private GL _gl = null!;
     private ImGuiController _imguiController = null!;
@@ -35,6 +36,8 @@ public sealed class SiltEngine
         try
         {
             _options = options ?? new AppOptions();
+            _benchmarkSceneRegistry = SceneRegistry.CreateBenchmarks();
+
             Log.Information("Starting Silt engine...");
 
             _window = CreateWindow();
@@ -107,8 +110,11 @@ public sealed class SiltEngine
 
         // Setup camera
         CameraManager.Initialize(new Camera(new Vector3(0, 0, 0)));
-        
-        _currentScene = new TestScene(_gl, _window);
+
+        // Determine and load the initial scene
+        _currentScene = _options.BenchmarkEnabled
+            ?_benchmarkSceneRegistry.Create(_options.BenchmarkSceneId!, _gl, _window)
+            : new TestScene(_gl, _window);
         _currentScene.Load();
     }
 
