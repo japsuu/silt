@@ -11,12 +11,12 @@ namespace Silt;
 
 public sealed class TestScene : Scene
 {
-    private static VertexArrayObject<float, uint> _vao = null!;
-    private static BufferObject<float> _vbo = null!;
-    private static BufferObject<uint> _ebo = null!;
-    private static Texture _texture = null!;
-    private static Shader _shader = null!;
-    private static readonly Transform[] _transforms = new Transform[3];
+    private VertexArrayObject<float, uint> _vao = null!;
+    private BufferObject<float> _vbo = null!;
+    private BufferObject<uint> _ebo = null!;
+    private Texture _texture = null!;
+    private Shader _shader = null!;
+    private readonly Transform[] _transforms = new Transform[3];
     
     private static readonly float[] _cubeVertices =
     [
@@ -85,6 +85,11 @@ public sealed class TestScene : Scene
         20, 22, 23
     ];
 
+    private int _uTexture;
+    private int _uMatM;
+    private int _uMatMV;
+    private int _uMatMVP;
+
 
     public TestScene(GL gl, IWindow window) : base(gl, window)
     {
@@ -108,6 +113,12 @@ public sealed class TestScene : Scene
 
         // Create shader
         _shader = new Shader(GL, "base", "assets/base.vert", "assets/base.frag");
+        
+        // Cache uniform locations
+        _uTexture = _shader.GetUniformLocation("u_texture");
+        _uMatM = _shader.GetUniformLocation("u_mat_m");
+        _uMatMV = _shader.GetUniformLocation("u_mat_mv");
+        _uMatMVP = _shader.GetUniformLocation("u_mat_mvp");
 
         // Create texture
         _texture = new Texture(GL, "assets/tex_proto_wall.png");
@@ -166,7 +177,7 @@ public sealed class TestScene : Scene
         _vao.Bind();
 
         _shader.Use();
-        _shader.SetUniform("u_texture", _texture, TextureUnit.Texture0);
+        _shader.SetUniform(_uTexture, _texture, TextureUnit.Texture0);
 
         Matrix4x4 view = CameraManager.MainCamera.GetViewMatrix();
         Matrix4x4 projection = CameraManager.MainCamera.GetProjectionMatrix();
@@ -175,9 +186,10 @@ public sealed class TestScene : Scene
         {
             Matrix4x4 mv = t.ModelMatrix * view;
             Matrix4x4 mvp = mv * projection;
-            _shader.SetUniform("u_mat_m", t.ModelMatrix);
-            _shader.SetUniform("u_mat_mv", mv);
-            _shader.SetUniform("u_mat_mvp", mvp);
+            _shader.SetUniform(_uMatM, t.ModelMatrix);
+            _shader.SetUniform(_uMatMV, mv);
+            _shader.SetUniform(_uMatMVP, mvp);
+
             GL.DrawElements(PrimitiveType.Triangles, (uint)_cubeIndices.Length, DrawElementsType.UnsignedInt, null);
         }
     }
