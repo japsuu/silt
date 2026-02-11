@@ -3,12 +3,13 @@ using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.CameraManagement;
 using Silt.Graphics;
-using Silt.Utils;
 using Silt.Metrics;
+using Silt.SceneManagement;
+using Silt.Utils;
 using Shader = Silt.Graphics.Shader;
 using Texture = Silt.Graphics.Texture;
 
-namespace Silt;
+namespace Silt.Scenes;
 
 public sealed class TestScene : Scene
 {

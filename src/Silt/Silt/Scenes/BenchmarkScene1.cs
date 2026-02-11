@@ -2,8 +2,9 @@
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.CameraManagement;
+using Silt.SceneManagement;
 
-namespace Silt;
+namespace Silt.Scenes;
 
 public sealed class BenchmarkScene1 : Scene
 {

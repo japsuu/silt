@@ -13,6 +13,8 @@ using Silt.CameraManagement;
 using Silt.InputManagement;
 using Silt.Metrics;
 using Silt.Platform;
+using Silt.SceneManagement;
+using Silt.Scenes;
 using Silt.UI;
 using Silt.UI.Windows;
 

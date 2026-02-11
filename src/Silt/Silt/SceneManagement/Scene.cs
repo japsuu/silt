@@ -1,7 +1,7 @@
 ﻿using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 
-namespace Silt;
+namespace Silt.SceneManagement;
 
 /// <summary>
 /// Represents an in-game scene.

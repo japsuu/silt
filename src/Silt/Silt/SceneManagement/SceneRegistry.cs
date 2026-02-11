@@ -1,7 +1,8 @@
 ﻿using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using Silt.Scenes;
 
-namespace Silt;
+namespace Silt.SceneManagement;
 
 /// <summary>
 /// Simple registry for Scenes keyed by a string id.
