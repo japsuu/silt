@@ -35,6 +35,18 @@ public sealed class BufferObject<T> : GraphicsResource where T : unmanaged
 
 
     /// <summary>
+    /// Creates a new buffer object without any data.
+    /// </summary>
+    /// <param name="gl">The OpenGL context</param>
+    /// <param name="target">The type of buffer to create</param>
+    public BufferObject(GL gl, BufferTargetARB target) : base(gl)
+    {
+        _bufferTarget = target;
+        Handle = Gl.GenBuffer();
+    }
+
+
+    /// <summary>
     /// Binds this buffer to the current OpenGL context.
     /// </summary>
     public void Bind()
@@ -49,6 +61,20 @@ public sealed class BufferObject<T> : GraphicsResource where T : unmanaged
     public void Unbind()
     {
         Gl.BindBuffer(_bufferTarget, 0);
+    }
+    
+    
+    /// <summary>
+    /// Sets new data for this buffer by allocating new storage and copying the data. Old data will be discarded.
+    /// </summary>
+    /// <param name="data">The new data to store in the buffer</param>
+    public unsafe void SetData(ReadOnlySpan<T> data)
+    {
+        Bind();
+        fixed (void* d = data)
+        {
+            Gl.BufferData(_bufferTarget, (nuint)(data.Length * sizeof(T)), d, BufferUsageARB.StaticDraw);
+        }
     }
 
 
