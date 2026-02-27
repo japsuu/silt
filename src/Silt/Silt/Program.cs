@@ -35,13 +35,13 @@ internal static class Program
 
         Option<int> benchmarkWarmupOption = new("--benchmark-warmup")
         {
-            DefaultValueFactory = _ => 5_000,
+            DefaultValueFactory = _ => 20_000,
             Description = "Warm-up frame count"
         };
 
         Option<int> benchmarkSamplesOption = new("--benchmark-samples")
         {
-            DefaultValueFactory = _ => 20_000,
+            DefaultValueFactory = _ => 100_000,
             Description = "Sample frame count"
         };
 

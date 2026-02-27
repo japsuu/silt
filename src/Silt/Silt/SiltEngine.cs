@@ -209,7 +209,7 @@ public sealed class SiltEngine
 #endif
         WindowOptions options = WindowOptions.Default with
         {
-            Size = new Vector2D<int>(720, 720),
+            Size = new Vector2D<int>(1920, 1080),
             Title = "Silt",
             VSync = false,
             API = new GraphicsAPI(ContextAPI.OpenGL, ContextProfile.Core, flags, new APIVersion(3, 3))

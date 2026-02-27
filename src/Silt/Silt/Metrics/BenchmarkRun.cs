@@ -3,7 +3,7 @@ using Serilog;
 
 namespace Silt.Metrics;
 
-public readonly struct BenchmarkConfig(string outputFilePath, Action? onComplete, int warmUpFrameCount = 5_000, int sampleFrameCount = 20_000)
+public readonly struct BenchmarkConfig(string outputFilePath, Action? onComplete, int warmUpFrameCount = 20_000, int sampleFrameCount = 100_000)
 {
     public readonly string OutputFilePath = outputFilePath;
     public readonly Action? OnComplete = onComplete;
