@@ -70,7 +70,7 @@ public sealed class SiltEngine
 #if DEBUG
         SetupOpenGlLogging(_gl);
 #endif
-        _gl.ClearColor(Color.Magenta);
+        _gl.ClearColor(Color.Black);
         _gl.Enable(GLEnum.DepthTest);
 
         // Setup platform info
