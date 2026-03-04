@@ -8,7 +8,7 @@ namespace Silt.Graphics;
 /// <typeparam name="T">The type of data stored in the buffer. Must be an unmanaged type.</typeparam>
 public sealed class BufferObject<T> : GraphicsResource where T : unmanaged
 {
-    public readonly uint DataLength;
+    public uint DataLength { get; private set; }
     
     private readonly BufferTargetARB _bufferTarget;
 
@@ -75,6 +75,8 @@ public sealed class BufferObject<T> : GraphicsResource where T : unmanaged
         {
             Gl.BufferData(_bufferTarget, (nuint)(data.Length * sizeof(T)), d, BufferUsageARB.StaticDraw);
         }
+
+        DataLength = (uint)data.Length;
     }
 
 
