@@ -42,7 +42,7 @@ public sealed class SiltEngine
 
             Log.Information("Starting Silt engine...");
 
-            _window = CreateWindow();
+            _window = CreateWindow(_options);
             _window.Load += OnLoad;
             _window.Update += OnUpdate;
             _window.Render += OnRender;
@@ -201,16 +201,19 @@ public sealed class SiltEngine
     }
 
 
-    private static IWindow CreateWindow()
+    private static IWindow CreateWindow(AppOptions appOptions)
     {
         ContextFlags flags = ContextFlags.ForwardCompatible;
 #if DEBUG
         flags |= ContextFlags.Debug;
 #endif
+        string title = appOptions.BenchmarkEnabled
+            ? $"Silt [BENCHMARK] {appOptions.BenchmarkSceneId}"
+            : "Silt";
         WindowOptions options = WindowOptions.Default with
         {
             Size = new Vector2D<int>(1920, 1080),
-            Title = "Silt",
+            Title = title,
             VSync = false,
             API = new GraphicsAPI(ContextAPI.OpenGL, ContextProfile.Core, flags, new APIVersion(3, 3))
         };
