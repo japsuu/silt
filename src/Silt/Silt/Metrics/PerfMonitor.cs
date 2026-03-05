@@ -108,9 +108,16 @@ public static class PerfMonitor
     
     public static void StartBenchmark(int skipFrameCount)
     {
+        if (Mode != PerfMonitorMode.Benchmark)
+        {
+            Log.Warning("Attempted to start benchmark while not in benchmark mode. Call Initialize with a BenchmarkConfig to enable benchmark mode.");
+            return;
+        }
+        
         _isStarted = true;
         _skipFrames = skipFrameCount;
-        Log.Information("Performance monitoring started in {Mode} mode.", Mode);
+        BenchmarkRun?.Start();
+        Log.Information("Benchmark started");
     }
 
 

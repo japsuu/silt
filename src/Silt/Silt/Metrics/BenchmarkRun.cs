@@ -104,6 +104,13 @@ public sealed class BenchmarkRun
 
         _renderingSamplesMs = new double[(int)(Math.Max(0, Config.SampleRenderingSeconds) * MAX_SAMPLES_PER_SECOND)];
         _renderingScratchMs = new double[_renderingSamplesMs.Length];
+    }
+    
+    
+    public void Start()
+    {
+        if (State != BenchmarkState.NotStarted)
+            throw new InvalidOperationException("BenchmarkRun can only be started once.");
 
         TransitionTo(BenchmarkState.MeshingWarmup);
     }
