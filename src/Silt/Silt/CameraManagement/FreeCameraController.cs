@@ -39,7 +39,8 @@ public class FreeCameraController : ICameraController
             return;
         
         // Movement
-        float moveAmount = (float)deltaTime * MoveSpeed;
+        float moveSpeed = MoveSpeed * (Input.IsKeyDown(Key.ShiftLeft) ? 10f : 1f);
+        float moveAmount = (float)deltaTime * moveSpeed;
 
         Vector3 forward = ReprojectMovementToGround ? Vector3.Normalize(camera.Front with { Y = 0 }) : camera.Front;
         Vector3 right = ReprojectMovementToGround ? Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY)) : camera.Right;
