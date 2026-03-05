@@ -327,12 +327,21 @@ public sealed class ChunkRenderer : IDisposable
 public static class ChunkMesher
 {
     public const int VERTEX_SIZE = 6;
-    private const int MAX_VERTICES_PER_CHUNK = Chunk.SIZE * Chunk.SIZE * Chunk.SIZE * 6 * 4; // worst case: all voxels solid, no face culling, 6 faces per voxel, 4 vertices per face
+    
+    // Worst case: all voxels are solid and no face culling
+    private const int VOXELS_PER_CHUNK = Chunk.SIZE * Chunk.SIZE * Chunk.SIZE;
+    private const int FACES_PER_VOXEL = 6;
+    private const int VERTICES_PER_FACE = 4;
+    private const int INDICES_PER_FACE = 6;
 
-    // Meshing "buffers" to avoid allocations during meshing.
+    private const int MAX_FACES_PER_CHUNK = VOXELS_PER_CHUNK * FACES_PER_VOXEL;
+    private const int MAX_VERTICES_PER_CHUNK = MAX_FACES_PER_CHUNK * VERTICES_PER_FACE;
+    private const int MAX_INDICES_PER_CHUNK = MAX_FACES_PER_CHUNK * INDICES_PER_FACE;
+
+    // Meshing "scratch buffers" to avoid allocations during meshing.
     // We can use a single static buffer since meshing is currently single-threaded, and we process one chunk at a time.
     private static readonly float[] _vertices = new float[MAX_VERTICES_PER_CHUNK * VERTEX_SIZE];
-    private static readonly uint[] _indices = new uint[MAX_VERTICES_PER_CHUNK * 6 / 4]; // 6 indices per face, 4 vertices per face
+    private static readonly uint[] _indices = new uint[MAX_INDICES_PER_CHUNK];
     private static int _vertexDataCount = 0;
     private static uint _vertexCount = 0;
     private static int _indexDataCount = 0;
