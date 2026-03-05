@@ -29,7 +29,7 @@ public sealed class BenchmarkScene : Scene
     public override void Load()
     {
         // Setup scene camera
-        int cameraDistance = _worldRadiusChunks * Chunk.SIZE * 2 * 2;
+        float cameraDistance = _worldRadiusChunks * Chunk.SIZE * 2 * 1.4f;
         CameraManager.MainCamera.Position = new Vector3(-cameraDistance, cameraDistance, cameraDistance);
         CameraManager.MainCamera.LookAt(Vector3.Zero);
         CameraManager.SetActiveController(new FreeCameraController());
