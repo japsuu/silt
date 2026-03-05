@@ -25,6 +25,12 @@ public sealed class VoxelWorld : IDisposable
     }
 
 
+    public void Generate()
+    {
+        ChunkManager.GenerateAllChunks();
+    }
+
+
     public void Draw()
     {
         _renderer.Draw();
@@ -127,11 +133,19 @@ public sealed class ChunkManager : IDisposable
                 {
                     int index = GetChunkIndex(x, y, z);
                     Chunk chunk = new(new Vector3D<int>(x, y, z), gl);
-                    ChunkGenerator.GenerateChunk(chunk);
-                    chunk.UpdateMesh();
                     _chunks[index] = chunk;
                 }
             }
+        }
+    }
+    
+    
+    public void GenerateAllChunks()
+    {
+        foreach (Chunk chunk in _chunks)
+        {
+            ChunkGenerator.GenerateChunk(chunk);
+            chunk.UpdateMesh();
         }
     }
     

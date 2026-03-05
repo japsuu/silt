@@ -43,6 +43,8 @@ public sealed class BenchmarkScene : Scene
         _centerChunks[5] = _world.ChunkManager.GetChunkAtPosition(-1, 0, 0);
         _centerChunks[6] = _world.ChunkManager.GetChunkAtPosition(0, 0, -1);
         _centerChunks[7] = _world.ChunkManager.GetChunkAtPosition(0, 0, 0);
+        
+        _world.Generate();
 
         PerfMonitor.BenchmarkStateChanged += OnBenchmarkStateChanged;
         PerfMonitor.StartBenchmark(3);
