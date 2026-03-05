@@ -83,7 +83,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         _chunkShader.SetUniform(_uMatProj, proj);
 
         // Iterate over visible chunks and draw them.
-        foreach (Chunk chunk in _chunkManager.LoadedChunks)
+        foreach (Chunk chunk in _chunkManager.Chunks)
             chunk.Draw();
     }
 
@@ -101,10 +101,9 @@ public sealed class VoxelWorldRenderer : IDisposable
 /// </summary>
 public sealed class ChunkManager : IDisposable
 {
-    public IEnumerable<Chunk> LoadedChunks => _chunks;
-    
     // flattened 3D array of chunks, indexed by (x + y * sizeX + z * sizeX * sizeY)
-    private readonly Chunk[] _chunks;
+    public readonly Chunk[] Chunks;
+    
     private readonly int _worldRadiusChunks;
     private readonly int _worldSizeChunks;
 
@@ -122,7 +121,7 @@ public sealed class ChunkManager : IDisposable
         _worldRadiusChunks = worldRadiusChunks;
         _worldSizeChunks = worldRadiusChunks * 2;
         int totalChunks = _worldSizeChunks * _worldSizeChunks * _worldSizeChunks;
-        _chunks = new Chunk[totalChunks];
+        Chunks = new Chunk[totalChunks];
         
         // Chunk coordinates are [-radius, radius-1].
         for (int x = -worldRadiusChunks; x < worldRadiusChunks; x++)
@@ -133,7 +132,7 @@ public sealed class ChunkManager : IDisposable
                 {
                     int index = GetChunkIndex(x, y, z);
                     Chunk chunk = new(new Vector3D<int>(x, y, z), gl);
-                    _chunks[index] = chunk;
+                    Chunks[index] = chunk;
                 }
             }
         }
@@ -142,7 +141,7 @@ public sealed class ChunkManager : IDisposable
     
     public void GenerateAllChunks()
     {
-        foreach (Chunk chunk in _chunks)
+        foreach (Chunk chunk in Chunks)
         {
             ChunkGenerator.GenerateChunk(chunk);
             chunk.UpdateMesh();
@@ -160,7 +159,7 @@ public sealed class ChunkManager : IDisposable
         }
         
         int index = GetChunkIndex(chunkX, chunkY, chunkZ);
-        return _chunks[index] ?? throw new ArgumentException($"No chunk found at position ({chunkX}, {chunkY}, {chunkZ})");
+        return Chunks[index] ?? throw new ArgumentException($"No chunk found at position ({chunkX}, {chunkY}, {chunkZ})");
     }
     
     
@@ -179,13 +178,13 @@ public sealed class ChunkManager : IDisposable
         }
         
         int index = GetChunkIndex(chunkX, chunkY, chunkZ);
-        return _chunks[index] ?? throw new ArgumentException($"No chunk found at world position {worldPos}");
+        return Chunks[index] ?? throw new ArgumentException($"No chunk found at world position {worldPos}");
     }
     
     
     public void Dispose()
     {
-        foreach (Chunk chunk in _chunks)
+        foreach (Chunk chunk in Chunks)
         {
             chunk.Dispose();
         }
@@ -288,9 +287,13 @@ public sealed class ChunkRenderer : IDisposable
 
     public void UpdateMeshData(VoxelMeshData meshData)
     {
+        _vao.Bind();
+        
         // Update buffers with new data
         _vbo.SetData(meshData.Vertices);
         _ebo.SetData(meshData.Indices);
+        
+        _vao.Unbind();
     }
     
     
