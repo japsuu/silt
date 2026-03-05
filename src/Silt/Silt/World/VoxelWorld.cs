@@ -5,6 +5,7 @@ using Silk.NET.OpenGL;
 using Silt.CameraManagement;
 using Silt.Graphics;
 using Silt.Metrics;
+using Silt.World.Generation;
 using Shader = Silt.Graphics.Shader;
 
 namespace Silt.World;
@@ -66,7 +67,6 @@ public sealed class VoxelWorldRenderer : IDisposable
         _gl = gl;
         _chunkManager = chunkManager;
 
-        // Simple vertex-color shader for voxel chunks.
         _chunkShader = new Shader(_gl, "voxel_chunk", "assets/voxel_chunk.vert", "assets/voxel_chunk.frag");
         _uMatView = _chunkShader.GetUniformLocation("u_mat_view");
         _uMatProj = _chunkShader.GetUniformLocation("u_mat_proj");
@@ -317,28 +317,6 @@ public sealed class ChunkRenderer : IDisposable
         _vao.Dispose();
         _vbo.Dispose();
         _ebo.Dispose();
-    }
-}
-
-/// <summary>
-/// Responsible for generating voxel data for a chunk based on procedural algorithms.
-/// </summary>
-public static class ChunkGenerator
-{
-    public static void GenerateChunk(Chunk chunk)
-    {
-        // For testing, fill the chunk with some voxels in a pattern.
-        for (int x = 0; x < Chunk.SIZE; x++)
-        {
-            for (int y = 0; y < Chunk.SIZE; y++)
-            {
-                for (int z = 0; z < Chunk.SIZE; z++)
-                {
-                    int id = (x + y + z) % 8; // Simple pattern of voxel types
-                    chunk.Voxels[x, y, z] = new Voxel(id, 0f, 0, 0);
-                }
-            }
-        }
     }
 }
 

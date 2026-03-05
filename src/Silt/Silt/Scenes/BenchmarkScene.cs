@@ -6,6 +6,7 @@ using Silt.CameraManagement;
 using Silt.SceneManagement;
 using Silt.World;
 using Silt.Metrics;
+using Silt.World.Generation;
 
 namespace Silt.Scenes;
 
@@ -19,10 +20,12 @@ public sealed class BenchmarkScene : Scene
     private bool _isMeshingWorkloadActive;
     
 
-    public BenchmarkScene(int worldRadiusChunks, GL gl, IWindow window) : base(gl, window)
+    public BenchmarkScene(int worldRadiusChunks, float noiseFrequency, GL gl, IWindow window) : base(gl, window)
     {
         _worldRadiusChunks = worldRadiusChunks;
         _world = new VoxelWorld(gl, _worldRadiusChunks);
+        
+        ChunkGenerator.ConfigureNoise(noiseFrequency);
     }
 
 

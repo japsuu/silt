@@ -38,8 +38,8 @@ public sealed class SceneRegistry
     {
         SceneRegistry registry = new();
 
-        registry.Register("small", (gl, window) => new BenchmarkScene(2, gl, window));
-        registry.Register("large", (gl, window) => new BenchmarkScene(4, gl, window));
+        registry.Register("low-frequency", (gl, window) => new BenchmarkScene(4, 0.05f, gl, window));
+        registry.Register("high-frequency", (gl, window) => new BenchmarkScene(4, 1f, gl, window));
 
         return registry;
     }
