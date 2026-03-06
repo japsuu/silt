@@ -72,6 +72,8 @@ public sealed class SiltEngine
 #endif
         _gl.ClearColor(Color.Black);
         _gl.Enable(GLEnum.DepthTest);
+        _gl.Enable(GLEnum.CullFace);
+        _gl.CullFace(GLEnum.Back);
 
         // Setup platform info
         MemoryInfo.Initialize();
