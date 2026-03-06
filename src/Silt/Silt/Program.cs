@@ -53,7 +53,7 @@ internal static class Program
         
         Option<int> benchmarkBatchRemeshSampleIterationsOption = new("--benchmark-batch-remesh-sample-iterations")
         {
-            DefaultValueFactory = _ => 3,
+            DefaultValueFactory = _ => 5,
             Description = "Number of full world remesh iterations to sample for timing"
         };
 
