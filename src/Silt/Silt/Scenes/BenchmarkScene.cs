@@ -30,7 +30,7 @@ public sealed class BenchmarkScene : Scene
     {
         // Setup scene camera
         float cameraDistance = _worldRadiusChunks * Chunk.SIZE * 2 * 1.4f;
-        CameraManager.MainCamera.Position = new Vector3(-cameraDistance, cameraDistance, cameraDistance);
+        CameraManager.MainCamera.Position = new Vector3(cameraDistance, cameraDistance, cameraDistance);
         CameraManager.MainCamera.LookAt(Vector3.Zero);
         CameraManager.SetActiveController(new FreeCameraController());
         
