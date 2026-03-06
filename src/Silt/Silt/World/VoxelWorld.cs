@@ -308,7 +308,7 @@ public sealed class ChunkRenderer : IDisposable
 
         // Update performance metrics
         int triangles = (int)(_ebo.DataLength / 3);
-        int vertices = (int)(_vbo.DataLength / ChunkMesher.VERTEX_SIZE);
+        int vertices = (int)(_vbo.DataLength / ChunkMesher.VERTEX_SIZE_ELEMENTS);
         PerfMonitor.AddTriangles(triangles);
         PerfMonitor.AddVertices(vertices);
         PerfMonitor.AddDrawCalls(1);
@@ -329,7 +329,7 @@ public sealed class ChunkRenderer : IDisposable
 /// </summary>
 public static class ChunkMesher
 {
-    public const int VERTEX_SIZE = 6;
+    public const int VERTEX_SIZE_ELEMENTS = 9;
     
     // Worst case: all voxels are solid and no face culling
     private const int VOXELS_PER_CHUNK = Chunk.SIZE * Chunk.SIZE * Chunk.SIZE;
@@ -343,11 +343,11 @@ public static class ChunkMesher
 
     // Meshing "scratch buffers" to avoid allocations during meshing.
     // We can use a single static buffer since meshing is currently single-threaded, and we process one chunk at a time.
-    private static readonly float[] _vertices = new float[MAX_VERTICES_PER_CHUNK * VERTEX_SIZE];
+    private static readonly float[] _vertices = new float[MAX_VERTICES_PER_CHUNK * VERTEX_SIZE_ELEMENTS];
     private static readonly uint[] _indices = new uint[MAX_INDICES_PER_CHUNK];
-    private static int _vertexDataCount = 0;
-    private static uint _vertexCount = 0;
-    private static int _indexDataCount = 0;
+    private static int _vertexDataCount;
+    private static uint _vertexCount;
+    private static int _indexDataCount;
     
 
     public static VoxelMeshData MeshChunk(Chunk chunk)
@@ -370,7 +370,7 @@ public static class ChunkMesher
 
                     (float r, float g, float b) = GetColorForVoxel(voxel);
 
-                    // Each vertex has 6 floats: position (3) and color (3)
+                    // Each vertex has 9 floats: position (3), color (3), and normal (3)
                     float baseX = chunk.WorldPosition.X + x;
                     float baseY = chunk.WorldPosition.Y + y;
                     float baseZ = chunk.WorldPosition.Z + z;
@@ -382,24 +382,36 @@ public static class ChunkMesher
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
                     _indices[_indexDataCount++] = _vertexCount;
                     _indices[_indexDataCount++] = _vertexCount + 1;
                     _indices[_indexDataCount++] = _vertexCount + 2;
@@ -415,24 +427,36 @@ public static class ChunkMesher
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
                     _indices[_indexDataCount++] = _vertexCount;
                     _indices[_indexDataCount++] = _vertexCount + 1;
                     _indices[_indexDataCount++] = _vertexCount + 2;
@@ -448,24 +472,36 @@ public static class ChunkMesher
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _indices[_indexDataCount++] = _vertexCount;
                     _indices[_indexDataCount++] = _vertexCount + 1;
                     _indices[_indexDataCount++] = _vertexCount + 2;
@@ -481,24 +517,36 @@ public static class ChunkMesher
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 0;
                     _indices[_indexDataCount++] = _vertexCount;
                     _indices[_indexDataCount++] = _vertexCount + 1;
                     _indices[_indexDataCount++] = _vertexCount + 2;
@@ -514,24 +562,36 @@ public static class ChunkMesher
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY + 1;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = 1;
+                    _vertices[_vertexDataCount++] = 0;
                     _indices[_indexDataCount++] = _vertexCount;
                     _indices[_indexDataCount++] = _vertexCount + 1;
                     _indices[_indexDataCount++] = _vertexCount + 2;
@@ -547,24 +607,36 @@ public static class ChunkMesher
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX + 1;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
                     _vertices[_vertexDataCount++] = baseX;
                     _vertices[_vertexDataCount++] = baseY;
                     _vertices[_vertexDataCount++] = baseZ + 1;
                     _vertices[_vertexDataCount++] = r;
                     _vertices[_vertexDataCount++] = g;
                     _vertices[_vertexDataCount++] = b;
+                    _vertices[_vertexDataCount++] = 0;
+                    _vertices[_vertexDataCount++] = -1;
+                    _vertices[_vertexDataCount++] = 0;
                     _indices[_indexDataCount++] = _vertexCount;
                     _indices[_indexDataCount++] = _vertexCount + 1;
                     _indices[_indexDataCount++] = _vertexCount + 2;
@@ -585,8 +657,9 @@ public static class ChunkMesher
 
     public static void SetupVertexAttributes(VertexArrayObject<float, uint> vao)
     {
-        vao.SetVertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_SIZE, 0);
-        vao.SetVertexAttributePointer(1, 3, VertexAttribPointerType.Float, VERTEX_SIZE, 3);
+        vao.SetVertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_SIZE_ELEMENTS, 0); // position
+        vao.SetVertexAttributePointer(1, 3, VertexAttribPointerType.Float, VERTEX_SIZE_ELEMENTS, 3); // color
+        vao.SetVertexAttributePointer(2, 3, VertexAttribPointerType.Float, VERTEX_SIZE_ELEMENTS, 6); // normal
     }
     
     
