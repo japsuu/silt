@@ -104,6 +104,27 @@ public sealed class StatsWindow : IUiWindow
                 ImGui.TextUnformatted($"Total benchmark time: {run.TotalTimeMs / 1000.0:F2} s");
                 break;
             }
+            
+            case BenchmarkState.BatchRemeshWarmup:
+                ImGui.TextUnformatted($"Warming up batch remesh... (iteration {run.BatchRemeshWarmupIterations}/{run.Config.BatchRemeshWarmupIterations})");
+                ImGui.TextUnformatted($"Chunks per iteration: {run.BatchRemeshTotalChunks:N0}");
+                break;
+            
+            case BenchmarkState.BatchRemeshSample:
+            {
+                ImGui.TextUnformatted($"Sampling batch remesh... (iteration {run.BatchRemeshSampleIterations}/{run.Config.BatchRemeshSampleIterations})");
+                ImGui.TextUnformatted($"Chunks per iteration: {run.BatchRemeshTotalChunks:N0}");
+                
+                double iterMsAvg = run.BatchRemeshAvgIterationMs;
+                double iterMsMin = run.BatchRemeshSampleIterations > 0 ? run.BatchRemeshMinIterationMs : 0;
+                double iterMsMax = run.BatchRemeshSampleIterations > 0 ? run.BatchRemeshMaxIterationMs : 0;
+                
+                ImGui.TextUnformatted($"Iteration avg    : {iterMsAvg:F2} ms");
+                ImGui.TextUnformatted($"Iteration min/max: {iterMsMin:F2} ms / {iterMsMax:F2} ms");
+                ImGui.TextUnformatted($"Chunks/sec: {run.BatchRemeshChunksPerSecond:F1}");
+                ImGui.TextUnformatted($"Total benchmark time: {run.TotalTimeMs / 1000.0:F2} s");
+                break;
+            }
 
             case BenchmarkState.RenderingWarmup:
                 ImGui.TextUnformatted($"Warming up rendering... ({warmupRenderingS:F2}/{warmupRenderingTargetS:F2} s, frames={run.RenderingWarmUpFrameCount:N0})");

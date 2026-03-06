@@ -47,7 +47,7 @@ public sealed class TestScene : Scene
     {
         _world.Update(deltaTime);
 
-        _world.ChunkManager.Chunks[_remeshIndex].UpdateMesh();
+        _world.ChunkManager.Chunks[_remeshIndex].UpdateMeshTimed();
         _remeshIndex = (_remeshIndex + 1) % _world.ChunkManager.Chunks.Length;
     }
 

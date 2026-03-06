@@ -8,6 +8,8 @@ public readonly struct BenchmarkConfig(
     Action? onComplete,
     double warmUpMeshingSeconds = 10.0,
     double sampleMeshingSeconds = 30.0,
+    int batchRemeshWarmupIterations = 3,
+    int batchRemeshSampleIterations = 3,
     double warmUpRenderingSeconds = 10.0,
     double sampleRenderingSeconds = 30.0)
 {
@@ -16,6 +18,10 @@ public readonly struct BenchmarkConfig(
 
     public readonly double WarmUpMeshingSeconds = warmUpMeshingSeconds;
     public readonly double SampleMeshingSeconds = sampleMeshingSeconds;
+    
+    public readonly int BatchRemeshWarmupIterations = batchRemeshWarmupIterations;
+    public readonly int BatchRemeshSampleIterations = batchRemeshSampleIterations;
+    
     public readonly double WarmUpRenderingSeconds = warmUpRenderingSeconds;
     public readonly double SampleRenderingSeconds = sampleRenderingSeconds;
 }
@@ -25,6 +31,8 @@ public enum BenchmarkState
     NotStarted,
     MeshingWarmup,
     MeshingSample,
+    BatchRemeshWarmup,
+    BatchRemeshSample,
     RenderingWarmup,
     RenderingSample,
     Complete
@@ -66,12 +74,25 @@ public sealed class BenchmarkRun
     public int MeshingSampleFrameCount { get; private set; }
     public int RenderingWarmUpFrameCount { get; private set; }
     
+    // Batch remesh metrics
+    public int BatchRemeshTotalChunks { get; private set; }
+    public int BatchRemeshWarmupIterations { get; private set; }
+    public int BatchRemeshSampleIterations { get; private set; }
+    public double BatchRemeshTotalTimeMs { get; private set; }
+    public double BatchRemeshAvgIterationMs { get; private set; }
+    public double BatchRemeshMinIterationMs { get; private set; } = double.MaxValue;
+    public double BatchRemeshMaxIterationMs { get; private set; } = double.MinValue;
+    public double BatchRemeshChunksPerSecond { get; private set; }
+    
     public double TotalTimeMs { get; private set; }
 
     private readonly double _warmUpMeshingTargetMs;
     private readonly double _sampleMeshingTargetMs;
     private readonly double _warmUpRenderingTargetMs;
     private readonly double _sampleRenderingTargetMs;
+    
+    private readonly int _batchRemeshWarmupTargetIterations;
+    private readonly int _batchRemeshSampleTargetIterations;
 
     // Preallocated storage for meshing samples and scratch for percentile.
     private readonly double[] _meshingSamplesMs;
@@ -114,6 +135,9 @@ public sealed class BenchmarkRun
         _sampleMeshingTargetMs = Math.Max(0, Config.SampleMeshingSeconds) * 1000.0;
         _warmUpRenderingTargetMs = Math.Max(0, Config.WarmUpRenderingSeconds) * 1000.0;
         _sampleRenderingTargetMs = Math.Max(0, Config.SampleRenderingSeconds) * 1000.0;
+        
+        _batchRemeshWarmupTargetIterations = Math.Max(0, Config.BatchRemeshWarmupIterations);
+        _batchRemeshSampleTargetIterations = Math.Max(1, Config.BatchRemeshSampleIterations);
 
         _meshingSamplesMs = new double[(int)(Math.Max(0, Config.SampleMeshingSeconds) * MAX_SAMPLES_PER_SECOND)];
         _meshingScratchMs = new double[_meshingSamplesMs.Length];
@@ -164,7 +188,12 @@ public sealed class BenchmarkRun
                 MeshingFrameMsAvg = MeshingSampleFrameCount > 0 ? MeshingTotalTimeMs / MeshingSampleFrameCount : 0;
 
                 if (MeshingSampleTimeMs >= _sampleMeshingTargetMs)
-                    TransitionTo(BenchmarkState.RenderingWarmup);
+                    TransitionTo(BenchmarkState.BatchRemeshWarmup);
+                break;
+            
+            // BatchRemeshWarmup and BatchRemeshSample are driven externally via RecordBatchRemeshIteration
+            case BenchmarkState.BatchRemeshWarmup:
+            case BenchmarkState.BatchRemeshSample:
                 break;
 
             case BenchmarkState.RenderingWarmup:
@@ -214,6 +243,48 @@ public sealed class BenchmarkRun
     }
 
 
+    /// <summary>
+    /// Records a single batch remesh iteration (remeshing all chunks in the world).
+    /// Called externally by the benchmark scene after completing a full world remesh.
+    /// </summary>
+    /// <param name="iterationMs">Time taken to remesh all chunks in milliseconds.</param>
+    /// <param name="chunkCount">Total number of chunks that were remeshed.</param>
+    public void RecordBatchRemeshIteration(double iterationMs, int chunkCount)
+    {
+        if (double.IsNaN(iterationMs) || double.IsInfinity(iterationMs) || iterationMs <= 0)
+            return;
+
+        BatchRemeshTotalChunks = chunkCount;
+
+        switch (State)
+        {
+            case BenchmarkState.BatchRemeshWarmup:
+                BatchRemeshWarmupIterations++;
+                if (BatchRemeshWarmupIterations >= _batchRemeshWarmupTargetIterations)
+                    TransitionTo(BenchmarkState.BatchRemeshSample);
+                break;
+
+            case BenchmarkState.BatchRemeshSample:
+                BatchRemeshTotalTimeMs += iterationMs;
+                BatchRemeshMinIterationMs = Math.Min(BatchRemeshMinIterationMs, iterationMs);
+                BatchRemeshMaxIterationMs = Math.Max(BatchRemeshMaxIterationMs, iterationMs);
+                BatchRemeshSampleIterations++;
+                
+                BatchRemeshAvgIterationMs = BatchRemeshSampleIterations > 0 
+                    ? BatchRemeshTotalTimeMs / BatchRemeshSampleIterations 
+                    : 0;
+                
+                // Calculate chunks per second based on average iteration time
+                if (BatchRemeshAvgIterationMs > 0)
+                    BatchRemeshChunksPerSecond = chunkCount / (BatchRemeshAvgIterationMs / 1000.0);
+
+                if (BatchRemeshSampleIterations >= _batchRemeshSampleTargetIterations)
+                    TransitionTo(BenchmarkState.RenderingWarmup);
+                break;
+        }
+    }
+
+
     private void CompleteAndWriteResults()
     {
         double meshingP99 = MeshingSampleFrameCount > 0
@@ -248,6 +319,15 @@ public sealed class BenchmarkRun
                         $"meshing_frame_ms_p99={meshingP99.ToString("F4", CultureInfo.InvariantCulture)}\n" +
                         meshingBlock +
                         $"meshing_benchmark_time_total_ms={MeshingSampleTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                        "\n" +
+                        $"batch_remesh_total_chunks={BatchRemeshTotalChunks}\n" +
+                        $"batch_remesh_warmup_iterations={BatchRemeshWarmupIterations}\n" +
+                        $"batch_remesh_sample_iterations={BatchRemeshSampleIterations}\n" +
+                        $"batch_remesh_iteration_ms_avg={BatchRemeshAvgIterationMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                        $"batch_remesh_iteration_ms_min={(BatchRemeshSampleIterations > 0 ? BatchRemeshMinIterationMs : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                        $"batch_remesh_iteration_ms_max={(BatchRemeshSampleIterations > 0 ? BatchRemeshMaxIterationMs : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                        $"batch_remesh_total_time_ms={BatchRemeshTotalTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                        $"batch_remesh_chunks_per_second={BatchRemeshChunksPerSecond.ToString("F4", CultureInfo.InvariantCulture)}\n" +
                         "\n" +
                         $"benchmark_time_total_ms={TotalTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n";
 

@@ -11,6 +11,9 @@ public sealed class AppOptions
 
     public double BenchmarkWarmUpMeshingSeconds { get; init; }
     public double BenchmarkSampleMeshingSeconds { get; init; }
+    
+    public int BenchmarkBatchRemeshWarmupIterations { get; init; }
+    public int BenchmarkBatchRemeshSampleIterations { get; init; }
 
     public double BenchmarkWarmUpRenderingSeconds { get; init; }
     public double BenchmarkSampleRenderingSeconds { get; init; }

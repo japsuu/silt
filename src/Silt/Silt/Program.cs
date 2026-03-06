@@ -44,6 +44,18 @@ internal static class Program
             DefaultValueFactory = _ => 30.0,
             Description = "Sample duration (seconds) for the meshing phase"
         };
+        
+        Option<int> benchmarkBatchRemeshWarmupIterationsOption = new("--benchmark-batch-remesh-warmup-iterations")
+        {
+            DefaultValueFactory = _ => 3,
+            Description = "Number of full world remesh iterations for warmup"
+        };
+        
+        Option<int> benchmarkBatchRemeshSampleIterationsOption = new("--benchmark-batch-remesh-sample-iterations")
+        {
+            DefaultValueFactory = _ => 3,
+            Description = "Number of full world remesh iterations to sample for timing"
+        };
 
         Option<double> benchmarkWarmupRenderingSecondsOption = new("--benchmark-warmup-rendering-seconds")
         {
@@ -63,6 +75,8 @@ internal static class Program
             benchmarkOutOption,
             benchmarkWarmupMeshingSecondsOption,
             benchmarkSampleMeshingSecondsOption,
+            benchmarkBatchRemeshWarmupIterationsOption,
+            benchmarkBatchRemeshSampleIterationsOption,
             benchmarkWarmupRenderingSecondsOption,
             benchmarkSampleRenderingSecondsOption
         };
@@ -75,6 +89,8 @@ internal static class Program
                 BenchmarkOutputFilePath = parseResult.GetValue(benchmarkOutOption),
                 BenchmarkWarmUpMeshingSeconds = parseResult.GetValue(benchmarkWarmupMeshingSecondsOption),
                 BenchmarkSampleMeshingSeconds = parseResult.GetValue(benchmarkSampleMeshingSecondsOption),
+                BenchmarkBatchRemeshWarmupIterations = parseResult.GetValue(benchmarkBatchRemeshWarmupIterationsOption),
+                BenchmarkBatchRemeshSampleIterations = parseResult.GetValue(benchmarkBatchRemeshSampleIterationsOption),
                 BenchmarkWarmUpRenderingSeconds = parseResult.GetValue(benchmarkWarmupRenderingSecondsOption),
                 BenchmarkSampleRenderingSeconds = parseResult.GetValue(benchmarkSampleRenderingSecondsOption),
                 BenchmarkSceneId = parseResult.GetValue(benchmarkSceneOption)

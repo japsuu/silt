@@ -218,4 +218,28 @@ public static class PerfMonitor
 
         BenchmarkChunkMeshing?.AddSample(meshingMs);
     }
+    
+    
+    /// <summary>
+    /// Records a batch remesh iteration (time to remesh all chunks in the world).
+    /// Only captured during <see cref="Metrics.BenchmarkState.BatchRemeshWarmup"/> or <see cref="Metrics.BenchmarkState.BatchRemeshSample"/>.
+    /// </summary>
+    /// <param name="iterationMs">Time taken to remesh all chunks in milliseconds.</param>
+    /// <param name="chunkCount">Total number of chunks that were remeshed.</param>
+    public static void RecordBatchRemeshIteration(double iterationMs, int chunkCount)
+    {
+        if (!_isCapturing)
+            return;
+
+        if (Mode != PerfMonitorMode.Benchmark)
+            return;
+
+        if (BenchmarkRun == null || BenchmarkRun.IsComplete)
+            return;
+
+        if (BenchmarkRun.State is not (BenchmarkState.BatchRemeshWarmup or BenchmarkState.BatchRemeshSample))
+            return;
+
+        BenchmarkRun.RecordBatchRemeshIteration(iterationMs, chunkCount);
+    }
 }

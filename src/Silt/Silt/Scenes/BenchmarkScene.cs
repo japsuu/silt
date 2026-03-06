@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silt.CameraManagement;
@@ -15,6 +16,7 @@ public sealed class BenchmarkScene : Scene
     private readonly int _worldRadiusChunks;
     private int _remeshIndex = 0;
     private bool _isMeshingWorkloadActive;
+    private bool _isBatchRemeshWorkloadActive;
     
 
     public BenchmarkScene(int worldRadiusChunks, float noiseFrequency, GL gl, IWindow window) : base(gl, window)
@@ -54,17 +56,40 @@ public sealed class BenchmarkScene : Scene
     {
         _world.Update(deltaTime);
 
-        if (!_isMeshingWorkloadActive)
-            return;
+        // Per-frame single chunk meshing (for per-chunk timing)
+        if (_isMeshingWorkloadActive)
+        {
+            _world.ChunkManager.Chunks[_remeshIndex].UpdateMeshTimed();
+            _remeshIndex = (_remeshIndex + 1) % _world.ChunkManager.Chunks.Length;
+        }
         
-        _world.ChunkManager.Chunks[_remeshIndex].UpdateMesh();
-        _remeshIndex = (_remeshIndex + 1) % _world.ChunkManager.Chunks.Length;
+        // Batch remesh all chunks (for throughput/parallelism timing)
+        if (_isBatchRemeshWorkloadActive)
+        {
+            PerformBatchRemesh();
+        }
+    }
+
+
+    private void PerformBatchRemesh()
+    {
+        long startTicks = Stopwatch.GetTimestamp();
+        
+        Chunk[] chunks = _world.ChunkManager.Chunks;
+        foreach (Chunk c in chunks)
+            c.UpdateMesh();
+        
+        long endTicks = Stopwatch.GetTimestamp();
+        double iterationMs = (endTicks - startTicks) * 1000.0 / Stopwatch.Frequency;
+        
+        PerfMonitor.RecordBatchRemeshIteration(iterationMs, chunks.Length);
     }
 
 
     private void OnBenchmarkStateChanged(BenchmarkState state)
     {
         _isMeshingWorkloadActive = state is BenchmarkState.MeshingWarmup or BenchmarkState.MeshingSample;
+        _isBatchRemeshWorkloadActive = state is BenchmarkState.BatchRemeshWarmup or BenchmarkState.BatchRemeshSample;
     }
 
 

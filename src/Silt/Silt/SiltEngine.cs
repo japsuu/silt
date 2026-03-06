@@ -90,6 +90,8 @@ public sealed class SiltEngine
                 onComplete: () => _isExitRequested = true,
                 warmUpMeshingSeconds: _options.BenchmarkWarmUpMeshingSeconds,
                 sampleMeshingSeconds: _options.BenchmarkSampleMeshingSeconds,
+                batchRemeshWarmupIterations: _options.BenchmarkBatchRemeshWarmupIterations,
+                batchRemeshSampleIterations: _options.BenchmarkBatchRemeshSampleIterations,
                 warmUpRenderingSeconds: _options.BenchmarkWarmUpRenderingSeconds,
                 sampleRenderingSeconds: _options.BenchmarkSampleRenderingSeconds));
         }

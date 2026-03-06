@@ -144,7 +144,7 @@ public sealed class ChunkManager : IDisposable
         foreach (Chunk chunk in Chunks)
         {
             ChunkGenerator.GenerateChunk(chunk);
-            chunk.UpdateMesh();
+            chunk.UpdateMeshTimed();
         }
     }
     
@@ -233,19 +233,28 @@ public sealed class Chunk : IDisposable
     
     
     /// <summary>
+    /// Same as <see cref="UpdateMesh"/> but also measures the time taken to generate the mesh and updates performance metrics.
+    /// </summary>
+    public void UpdateMeshTimed()
+    {
+        long startTicks = Stopwatch.GetTimestamp();
+
+        UpdateMesh();
+
+        long endTicks = Stopwatch.GetTimestamp();
+        double ms = (endTicks - startTicks) * 1000.0 / Stopwatch.Frequency;
+        PerfMonitor.AddChunkMeshingSample(ms);
+    }
+    
+    
+    /// <summary>
     /// Generates vertex and index data for this chunk based on its voxel data, and updates the renderer's buffers.
     /// Should be called whenever the voxel data changes and the mesh needs to be regenerated.
     /// </summary>
     public void UpdateMesh()
     {
-        long startTicks = Stopwatch.GetTimestamp();
-
         VoxelMeshData meshData = ChunkMesher.MeshChunk(this);
         _renderer.UpdateMeshData(meshData);
-
-        long endTicks = Stopwatch.GetTimestamp();
-        double ms = (endTicks - startTicks) * 1000.0 / Stopwatch.Frequency;
-        PerfMonitor.AddChunkMeshingSample(ms);
     }
     
     
