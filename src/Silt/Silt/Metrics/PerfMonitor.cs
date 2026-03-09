@@ -42,8 +42,6 @@ public static class PerfMonitor
 
     public static BenchmarkRun? BenchmarkRun { get; private set; }
 
-    public static BenchmarkState BenchmarkState => BenchmarkRun?.State ?? BenchmarkState.NotStarted;
-
     /// <summary>
     /// Subscribe to benchmark state changes (only relevant in benchmark mode).
     /// Convenience wrapper over <see cref="BenchmarkRun.OnStateChanged"/>.
@@ -278,18 +276,6 @@ public static class PerfMonitor
     /// <param name="meshBytes">Size of mesh data (VBO + EBO) in bytes.</param>
     public static void AddChunkStatsSample(int vertexCount, int triangleCount, long meshBytes)
     {
-        if (!_isCapturing)
-            return;
-
-        if (Mode != PerfMonitorMode.Benchmark)
-            return;
-
-        if (BenchmarkRun == null || BenchmarkRun.IsComplete)
-            return;
-
-        if (BenchmarkRun.State != BenchmarkState.MeshingSample)
-            return;
-
         BenchmarkChunkStats?.AddSample(vertexCount, triangleCount, meshBytes);
     }
 }

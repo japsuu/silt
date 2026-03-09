@@ -38,6 +38,23 @@ public sealed class Chunk : IDisposable
     
     
     /// <summary>
+    /// Same as <see cref="UpdateMesh"/> but called only once after chunk generation to capture per-chunk geometry statistics without the overhead of timing.
+    /// </summary>
+    public void UpdateMeshAfterGeneration()
+    {
+        VoxelMeshData meshData = ChunkMesher.MeshChunk(this);
+        _renderer.UpdateMeshData(meshData);
+        
+        // Record per-chunk geometry statistics
+        int vertexCount = meshData.Vertices.Length / ChunkMesher.VERTEX_SIZE_ELEMENTS;
+        int triangleCount = meshData.Indices.Length / 3;
+        long meshBytes = meshData.Vertices.Length * ChunkMesher.VERTEX_ELEMENT_SIZE_BYTES
+                         + meshData.Indices.Length * ChunkMesher.INDEX_ELEMENT_SIZE_BYTES;
+        PerfMonitor.AddChunkStatsSample(vertexCount, triangleCount, meshBytes);
+    }
+    
+    
+    /// <summary>
     /// Same as <see cref="UpdateMesh"/> but also measures the time taken to generate the mesh and updates performance metrics.
     /// </summary>
     public void UpdateMeshTimed()
@@ -50,13 +67,6 @@ public sealed class Chunk : IDisposable
         long endTicks = Stopwatch.GetTimestamp();
         double ms = (endTicks - startTicks) * 1000.0 / Stopwatch.Frequency;
         PerfMonitor.AddChunkMeshingSample(ms);
-        
-        // Record per-chunk geometry statistics
-        int vertexCount = meshData.Vertices.Length / ChunkMesher.VERTEX_SIZE_ELEMENTS;
-        int triangleCount = meshData.Indices.Length / 3;
-        long meshBytes = meshData.Vertices.Length * ChunkMesher.VERTEX_ELEMENT_SIZE_BYTES
-                         + meshData.Indices.Length * ChunkMesher.INDEX_ELEMENT_SIZE_BYTES;
-        PerfMonitor.AddChunkStatsSample(vertexCount, triangleCount, meshBytes);
     }
     
     

@@ -54,7 +54,7 @@ public sealed class ChunkManager : IDisposable
         foreach (Chunk chunk in Chunks)
         {
             ChunkGenerator.GenerateChunk(chunk);
-            chunk.UpdateMeshTimed();
+            chunk.UpdateMeshAfterGeneration();
         }
     }
     
