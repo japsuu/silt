@@ -84,12 +84,9 @@ public sealed class SiltEngine
         // Setup performance metrics
         if (_options.BenchmarkEnabled)
         {
-            string outputPath = string.IsNullOrWhiteSpace(_options.BenchmarkOutputFilePath)
-                ? "benchmark_results.txt"
-                : _options.BenchmarkOutputFilePath!;
 
             PerfMonitor.Initialize(new BenchmarkConfig(
-                outputPath,
+                _options.BenchmarkOutputFilePath,
                 onComplete: () => _isExitRequested = true,
                 warmUpMeshingSeconds: _options.BenchmarkWarmUpMeshingSeconds,
                 sampleMeshingSeconds: _options.BenchmarkSampleMeshingSeconds,

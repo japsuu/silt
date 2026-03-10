@@ -4,7 +4,7 @@ using Serilog;
 namespace Silt.Metrics;
 
 public readonly struct BenchmarkConfig(
-    string outputFilePath,
+    string? outputFilePath,
     Action? onComplete,
     double warmUpRenderingSeconds = 10.0,
     double sampleRenderingSeconds = 30.0,
@@ -13,7 +13,7 @@ public readonly struct BenchmarkConfig(
     int batchRemeshWarmupIterations = 3,
     int batchRemeshSampleIterations = 3)
 {
-    public readonly string OutputFilePath = outputFilePath;
+    public readonly string? OutputFilePath = outputFilePath;
     public readonly Action? OnComplete = onComplete;
 
     public readonly double WarmUpRenderingSeconds = warmUpRenderingSeconds;
@@ -288,58 +288,64 @@ public sealed class BenchmarkRun
 
     private void CompleteAndWriteResults()
     {
-        double meshingP99 = MeshingSampleFrameCount > 0
-            ? PercentileHelper.P99FromSamples(_meshingSamplesMs, _meshingScratchMs, MeshingSampleFrameCount)
-            : 0;
+        Log.Information("Benchmark complete.");
+        
+        if (Config.OutputFilePath != null)
+        {
+            double meshingP99 = MeshingSampleFrameCount > 0
+                ? PercentileHelper.P99FromSamples(_meshingSamplesMs, _meshingScratchMs, MeshingSampleFrameCount)
+                : 0;
 
-        double renderingP99 = RenderingSampleFrameCount > 0
-            ? PercentileHelper.P99FromSamples(_renderingSamplesMs, _renderingScratchMs, RenderingSampleFrameCount)
-            : 0;
+            double renderingP99 = RenderingSampleFrameCount > 0
+                ? PercentileHelper.P99FromSamples(_renderingSamplesMs, _renderingScratchMs, RenderingSampleFrameCount)
+                : 0;
 
-        MeshingStats meshing = PerfMonitor.BenchmarkChunkMeshing!;
-        string meshingBlock = meshing.FormatInvariant("meshing_chunk");
+            MeshingStats meshing = PerfMonitor.BenchmarkChunkMeshing!;
+            string meshingBlock = meshing.FormatInvariant("meshing_chunk");
 
-        ChunkStats chunkStats = PerfMonitor.BenchmarkChunkStats!;
-        string chunkStatsBlock = chunkStats.FormatInvariant("chunk");
+            ChunkStats chunkStats = PerfMonitor.BenchmarkChunkStats!;
+            string chunkStatsBlock = chunkStats.FormatInvariant("chunk");
 
-        string output = $"mode=benchmark\n" +
-                        $"rendering_target_warmup_seconds={Config.WarmUpRenderingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"rendering_warmup_frames={RenderingWarmUpFrameCount}\n" +
-                        $"rendering_target_sample_seconds={Config.SampleRenderingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"rendering_sample_frames={RenderingSampleFrameCount}\n" +
-                        $"rendering_frame_ms_avg={RenderingFrameMsAvg.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"rendering_frame_ms_min={(RenderingSampleFrameCount > 0 ? RenderingFrameMsMin : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"rendering_frame_ms_max={(RenderingSampleFrameCount > 0 ? RenderingFrameMsMax : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"rendering_frame_ms_p99={renderingP99.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"rendering_benchmark_time_total_ms={RenderingSampleTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        "\n" +
-                        $"meshing_target_warmup_seconds={Config.WarmUpMeshingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"meshing_warmup_frames={MeshingWarmUpFrameCount}\n" +
-                        $"meshing_target_sample_seconds={Config.SampleMeshingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"meshing_sample_frames={MeshingSampleFrameCount}\n" +
-                        $"meshing_frame_ms_avg={MeshingFrameMsAvg.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"meshing_frame_ms_min={(MeshingSampleFrameCount > 0 ? MeshingFrameMsMin : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"meshing_frame_ms_max={(MeshingSampleFrameCount > 0 ? MeshingFrameMsMax : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"meshing_frame_ms_p99={meshingP99.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        meshingBlock +
-                        $"meshing_benchmark_time_total_ms={MeshingSampleTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        "\n" +
-                        $"batch_remesh_total_chunks={BatchRemeshTotalChunks}\n" +
-                        $"batch_remesh_warmup_iterations={BatchRemeshWarmupIterations}\n" +
-                        $"batch_remesh_sample_iterations={BatchRemeshSampleIterations}\n" +
-                        $"batch_remesh_iteration_ms_avg={BatchRemeshAvgIterationMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"batch_remesh_iteration_ms_min={(BatchRemeshSampleIterations > 0 ? BatchRemeshMinIterationMs : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"batch_remesh_iteration_ms_max={(BatchRemeshSampleIterations > 0 ? BatchRemeshMaxIterationMs : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"batch_remesh_total_time_ms={BatchRemeshTotalTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        $"batch_remesh_chunks_per_second={BatchRemeshChunksPerSecond.ToString("F4", CultureInfo.InvariantCulture)}\n" +
-                        "\n" +
-                        chunkStatsBlock +
-                        "\n" +
-                        $"benchmark_time_total_ms={TotalTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n";
+            string output = $"mode=benchmark\n" +
+                            $"rendering_target_warmup_seconds={Config.WarmUpRenderingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"rendering_warmup_frames={RenderingWarmUpFrameCount}\n" +
+                            $"rendering_target_sample_seconds={Config.SampleRenderingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"rendering_sample_frames={RenderingSampleFrameCount}\n" +
+                            $"rendering_frame_ms_avg={RenderingFrameMsAvg.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"rendering_frame_ms_min={(RenderingSampleFrameCount > 0 ? RenderingFrameMsMin : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"rendering_frame_ms_max={(RenderingSampleFrameCount > 0 ? RenderingFrameMsMax : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"rendering_frame_ms_p99={renderingP99.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"rendering_benchmark_time_total_ms={RenderingSampleTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            "\n" +
+                            $"meshing_target_warmup_seconds={Config.WarmUpMeshingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"meshing_warmup_frames={MeshingWarmUpFrameCount}\n" +
+                            $"meshing_target_sample_seconds={Config.SampleMeshingSeconds.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"meshing_sample_frames={MeshingSampleFrameCount}\n" +
+                            $"meshing_frame_ms_avg={MeshingFrameMsAvg.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"meshing_frame_ms_min={(MeshingSampleFrameCount > 0 ? MeshingFrameMsMin : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"meshing_frame_ms_max={(MeshingSampleFrameCount > 0 ? MeshingFrameMsMax : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"meshing_frame_ms_p99={meshingP99.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            meshingBlock +
+                            $"meshing_benchmark_time_total_ms={MeshingSampleTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            "\n" +
+                            $"batch_remesh_total_chunks={BatchRemeshTotalChunks}\n" +
+                            $"batch_remesh_warmup_iterations={BatchRemeshWarmupIterations}\n" +
+                            $"batch_remesh_sample_iterations={BatchRemeshSampleIterations}\n" +
+                            $"batch_remesh_iteration_ms_avg={BatchRemeshAvgIterationMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"batch_remesh_iteration_ms_min={(BatchRemeshSampleIterations > 0 ? BatchRemeshMinIterationMs : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"batch_remesh_iteration_ms_max={(BatchRemeshSampleIterations > 0 ? BatchRemeshMaxIterationMs : 0).ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"batch_remesh_total_time_ms={BatchRemeshTotalTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            $"batch_remesh_chunks_per_second={BatchRemeshChunksPerSecond.ToString("F4", CultureInfo.InvariantCulture)}\n" +
+                            "\n" +
+                            chunkStatsBlock +
+                            "\n" +
+                            $"benchmark_time_total_ms={TotalTimeMs.ToString("F4", CultureInfo.InvariantCulture)}\n";
 
-        File.WriteAllText(Config.OutputFilePath, output);
-        string fullPath = Path.GetFullPath(Config.OutputFilePath);
-        Log.Information("Benchmark complete. Results written to {OutputFilePath}", fullPath);
+            File.WriteAllText(Config.OutputFilePath, output);
+            string fullPath = Path.GetFullPath(Config.OutputFilePath);
+            Log.Information("Results written to {OutputFilePath}", fullPath);
+        }
+        
         Config.OnComplete?.Invoke();
     }
 }
