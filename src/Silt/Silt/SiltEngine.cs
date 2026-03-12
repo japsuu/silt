@@ -124,6 +124,14 @@ public sealed class SiltEngine
             ?_benchmarkSceneRegistry.Create(_options.BenchmarkSceneId!, _gl, _window)
             : new TestScene(_gl, _window);
         _currentScene.Load();
+
+        // Apply camera overrides (after scene sets defaults)
+        if (_options.CameraPosition.HasValue)
+            CameraManager.MainCamera.Position = _options.CameraPosition.Value;
+        if (_options.CameraPitch.HasValue)
+            CameraManager.MainCamera.Pitch = _options.CameraPitch.Value;
+        if (_options.CameraYaw.HasValue)
+            CameraManager.MainCamera.Yaw = _options.CameraYaw.Value;
     }
 
 

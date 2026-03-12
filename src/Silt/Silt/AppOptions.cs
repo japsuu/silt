@@ -1,4 +1,5 @@
-﻿using Silt.Metrics;
+﻿using System.Numerics;
+using Silt.Metrics;
 
 namespace Silt;
 
@@ -21,4 +22,8 @@ public sealed class AppOptions
     public double BenchmarkSampleRenderingSeconds { get; init; }
     
     public ProfilePhase? TargetProfilePhase { get; init; }
+
+    public Vector3? CameraPosition { get; init; }
+    public float? CameraPitch { get; init; }
+    public float? CameraYaw { get; init; }
 }

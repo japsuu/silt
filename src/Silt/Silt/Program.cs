@@ -1,4 +1,6 @@
 ﻿using System.CommandLine;
+using System.Globalization;
+using System.Numerics;
 using Silt.Core.SceneManagement;
 using Silt.Metrics;
 
@@ -78,6 +80,21 @@ internal static class Program
                           $"Valid phases are: {string.Join(", ", ProfilePhaseExtensions.GetValidProfilePhases())}"
         };
 
+        Option<string?> cameraPositionOption = new("--camera-position")
+        {
+            Description = "Initial camera position as 'x,y,z' (e.g. '100,200,100')"
+        };
+
+        Option<float?> cameraPitchOption = new("--camera-pitch")
+        {
+            Description = "Initial camera pitch in degrees (vertical angle, clamped to -89..89)"
+        };
+
+        Option<float?> cameraYawOption = new("--camera-yaw")
+        {
+            Description = "Initial camera yaw in degrees (horizontal angle)"
+        };
+
         RootCommand root = new("Silt Rendering Engine")
         {
             benchmarkSceneOption,
@@ -88,7 +105,10 @@ internal static class Program
             benchmarkBatchRemeshSampleIterationsOption,
             benchmarkWarmupRenderingSecondsOption,
             benchmarkSampleRenderingSecondsOption,
-            profilePhaseOption
+            profilePhaseOption,
+            cameraPositionOption,
+            cameraPitchOption,
+            cameraYawOption
         };
 
         root.SetAction(parseResult =>
@@ -113,7 +133,10 @@ internal static class Program
                 BenchmarkSceneId = benchmarkScene,
                 TargetProfilePhase = profilePhase != null
                     ? ProfilePhaseExtensions.ParseProfilePhase(profilePhase)
-                    : null
+                    : null,
+                CameraPosition = ParseVector3(parseResult.GetValue(cameraPositionOption)),
+                CameraPitch = parseResult.GetValue(cameraPitchOption),
+                CameraYaw = parseResult.GetValue(cameraYawOption)
             };
 
             SiltEngine engine = new();
@@ -132,5 +155,20 @@ internal static class Program
             .Enrich.FromLogContext()
             .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
+    }
+
+
+    private static Vector3? ParseVector3(string? value)
+    {
+        if (value == null) return null;
+
+        string[] parts = value.Split(',');
+        if (parts.Length != 3)
+            throw new FormatException($"Invalid camera position '{value}'. Expected format: 'x,y,z' (e.g. '100,200,100').");
+
+        return new Vector3(
+            float.Parse(parts[0].Trim(), CultureInfo.InvariantCulture),
+            float.Parse(parts[1].Trim(), CultureInfo.InvariantCulture),
+            float.Parse(parts[2].Trim(), CultureInfo.InvariantCulture));
     }
 }
