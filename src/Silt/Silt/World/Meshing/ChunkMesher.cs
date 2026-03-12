@@ -1,4 +1,5 @@
-﻿using Silk.NET.OpenGL;
+﻿using System.Numerics;
+using Silk.NET.OpenGL;
 using Silt.Core.Graphics;
 
 namespace Silt.World.Meshing;
@@ -46,6 +47,9 @@ public static class ChunkMesher
     private const int MAX_VERTICES_PER_CHUNK = MAX_FACES_PER_CHUNK * VERTICES_PER_FACE;
     private const int MAX_INDICES_PER_CHUNK = MAX_FACES_PER_CHUNK * INDICES_PER_FACE;
 
+    /// <summary>Maximum voxel ID supported (IDs 1..MAX_VOXEL_ID).</summary>
+    private const int MAX_VOXEL_ID = 7;
+
     // Meshing "scratch buffers" to avoid allocations during meshing.
     // We can use a single static buffer since meshing is currently single-threaded, and we process one chunk at a time.
     private static readonly float[] _vertices = new float[MAX_VERTICES_PER_CHUNK * VERTEX_SIZE_ELEMENTS];
@@ -54,20 +58,31 @@ public static class ChunkMesher
     private static uint _vertexCount;
     private static int _indexDataCount;
 
-    // Greedy meshing scratch mask: stores the voxel ID of visible faces for the current slice.
-    // 0 means no face (air or occluded). Positive value = voxel ID to merge.
-    private static readonly int[] _mask = new int[Chunk.SIZE * Chunk.SIZE];
+    /// <summary>
+    /// Per-axis solid bitmasks for all slices.
+    /// Layout: _solidSliceMasks[slice * Chunk.SIZE + row] = bitmask of solid voxels along the column axis.
+    /// Each bit in the uint represents one voxel position along the column axis (0 = air, 1 = solid).
+    /// Reused per axis (cleared and rebuilt for X, Y, Z in turn).
+    /// </summary>
+    private static readonly uint[] _solidSliceMasks = new uint[Chunk.SIZE * Chunk.SIZE];
+
+    /// <summary>
+    /// Per-voxel-type binary face masks for one slice.
+    /// Layout: _faceMasks[voxelId * Chunk.SIZE + row] = bitmask of visible faces along the column axis.
+    /// Cleared and rebuilt for every slice.
+    /// </summary>
+    private static readonly uint[] _faceMasks = new uint[(MAX_VOXEL_ID + 1) * Chunk.SIZE];
 
 
     public static VoxelMeshData MeshChunk(in MeshingInput input)
     {
-        // Generate vertex and index data based on the voxel data in the chunk.
-        // Optimizations:
-        // - Neighbor-based face culling: skip faces between adjacent solid voxels (including across chunk boundaries)
-        // - Greedy meshing with neighbor-based face culling:
-        //   For each of the 6 face directions, we sweep through slices perpendicular to the face normal.
-        //   For each slice we build a 2D mask of visible face voxel IDs, then greedily merge
-        //   adjacent same-ID entries into larger rectangular quads.
+        // Binary meshing approach:
+        // 1. For each axis, precompute solid bitmasks for all slices (one uint per row, one bit per column voxel).
+        // 2. For each face direction (+/-), for each slice:
+        //    a. Bitwise face culling: visible = solidMask & ~neighborMask  (AND-NOT)
+        //    b. Distribute visible bits into per-voxel-type face masks
+        //    c. Binary greedy merge: use TrailingZeroCount for O(1) run detection,
+        //       extend runs vertically by masking against subsequent rows
         _vertexDataCount = 0;
         _vertexCount = 0;
         _indexDataCount = 0;
@@ -77,48 +92,79 @@ public static class ChunkMesher
         float worldY = input.Center.WorldPosition.Y;
         float worldZ = input.Center.WorldPosition.Z;
 
-        // --- X axis faces (X+ and X-) ---
-        // Slice perpendicular to X: iterate x from 0..SIZE, mask is [y, z]
+        // X AXIS FACES (X+ and X-)
+        // Solid mask layout: _solidSliceMasks[x * SIZE + y], bits represent z positions
+        Array.Clear(_solidSliceMasks, 0, _solidSliceMasks.Length);
+        for (int x = 0; x < Chunk.SIZE; x++)
+            for (int y = 0; y < Chunk.SIZE; y++)
+                for (int z = 0; z < Chunk.SIZE; z++)
+                    if (voxels[x, y, z].Id != 0)
+                        _solidSliceMasks[x * Chunk.SIZE + y] |= 1u << z;
+
         for (int face = 0; face < 2; face++)
         {
-            bool positive = face == 0; // X+ or X-
+            bool positive = face == 0;
             float nx = positive ? 1f : -1f;
+            Voxel[,,]? neighbourVoxels = positive ? input.XPos?.Voxels : input.XNeg?.Voxels;
 
             for (int x = 0; x < Chunk.SIZE; x++)
             {
-                // Build mask for this slice
+                Array.Clear(_faceMasks, 0, _faceMasks.Length);
+
+                int adjX = positive ? x + 1 : x - 1;
+                bool isBoundary = adjX < 0 || adjX >= Chunk.SIZE;
+
                 for (int y = 0; y < Chunk.SIZE; y++)
                 {
-                    for (int z = 0; z < Chunk.SIZE; z++)
-                    {
-                        int voxelId = voxels[x, y, z].Id;
-                        if (voxelId == 0)
-                        {
-                            _mask[y * Chunk.SIZE + z] = 0;
-                            continue;
-                        }
+                    uint solidMask = _solidSliceMasks[x * Chunk.SIZE + y];
+                    if (solidMask == 0) continue;
 
-                        int adjX = positive ? x + 1 : x - 1;
-                        Voxel[,,]? neighbour = positive ? input.XPos?.Voxels : input.XNeg?.Voxels;
-                        bool visible = IsVoxelOccluder(adjX, y, z, voxels, neighbour);
-                        _mask[y * Chunk.SIZE + z] = visible ? voxelId : 0;
+                    // Bitwise face culling: get neighbor solid mask for the adjacent slice
+                    uint neighborMask;
+                    if (!isBoundary)
+                    {
+                        neighborMask = _solidSliceMasks[adjX * Chunk.SIZE + y];
+                    }
+                    else if (neighbourVoxels != null)
+                    {
+                        int wrappedX = positive ? 0 : Chunk.SIZE - 1;
+                        neighborMask = 0;
+                        for (int z = 0; z < Chunk.SIZE; z++)
+                            if (neighbourVoxels[wrappedX, y, z].Id != 0)
+                                neighborMask |= 1u << z;
+                    }
+                    else
+                    {
+                        neighborMask = 0; // World boundary: all faces visible
+                    }
+
+                    // Visible faces: solid AND neighbor is air (bitwise AND-NOT)
+                    uint visibleMask = solidMask & ~neighborMask;
+
+                    // Distribute visible bits into per-type face masks using bit extraction
+                    while (visibleMask != 0)
+                    {
+                        int z = BitOperations.TrailingZeroCount(visibleMask);
+                        visibleMask &= visibleMask - 1; // clear lowest set bit
+                        int id = voxels[x, y, z].Id;
+                        _faceMasks[id * Chunk.SIZE + y] |= 1u << z;
                     }
                 }
 
-                // Greedy merge the mask
-                GreedyMerge(Chunk.SIZE, Chunk.SIZE, (row, col, w, h, id) =>
+                // Binary greedy merge and emit quads
+                BinaryGreedyMerge((row, startBit, width, height, id) =>
                 {
-                    // row = y, col = z
+                    // row = y, startBit = z
                     (float r, float g, float b) = GetColorForId(id);
                     float px = worldX + x + (positive ? 1 : 0);
                     float py0 = worldY + row;
-                    float py1 = worldY + row + h;
-                    float pz0 = worldZ + col;
-                    float pz1 = worldZ + col + w;
+                    float py1 = worldY + row + height;
+                    float pz0 = worldZ + startBit;
+                    float pz1 = worldZ + startBit + width;
 
                     if (positive)
                     {
-                        // X+ face: vertices wound CCW when viewed from +X
+                        // X+ face
                         EmitQuad(
                             px, py0, pz1,
                             px, py0, pz0,
@@ -140,42 +186,71 @@ public static class ChunkMesher
             }
         }
 
-        // --- Y axis faces (Y+ and Y-) ---
-        // Slice perpendicular to Y: iterate y from 0..SIZE, mask is [x, z]
+        // Y AXIS FACES (Y+ and Y-)
+        // Solid mask layout: _solidSliceMasks[y * SIZE + x], bits represent z positions
+        Array.Clear(_solidSliceMasks, 0, _solidSliceMasks.Length);
+        for (int y = 0; y < Chunk.SIZE; y++)
+            for (int x = 0; x < Chunk.SIZE; x++)
+                for (int z = 0; z < Chunk.SIZE; z++)
+                    if (voxels[x, y, z].Id != 0)
+                        _solidSliceMasks[y * Chunk.SIZE + x] |= 1u << z;
+
         for (int face = 0; face < 2; face++)
         {
             bool positive = face == 0;
             float ny = positive ? 1f : -1f;
+            Voxel[,,]? neighbourVoxels = positive ? input.YPos?.Voxels : input.YNeg?.Voxels;
 
             for (int y = 0; y < Chunk.SIZE; y++)
             {
+                Array.Clear(_faceMasks, 0, _faceMasks.Length);
+
+                int adjY = positive ? y + 1 : y - 1;
+                bool isBoundary = adjY < 0 || adjY >= Chunk.SIZE;
+
                 for (int x = 0; x < Chunk.SIZE; x++)
                 {
-                    for (int z = 0; z < Chunk.SIZE; z++)
-                    {
-                        int voxelId = voxels[x, y, z].Id;
-                        if (voxelId == 0)
-                        {
-                            _mask[x * Chunk.SIZE + z] = 0;
-                            continue;
-                        }
+                    uint solidMask = _solidSliceMasks[y * Chunk.SIZE + x];
+                    if (solidMask == 0) continue;
 
-                        int adjY = positive ? y + 1 : y - 1;
-                        Voxel[,,]? neighbour = positive ? input.YPos?.Voxels : input.YNeg?.Voxels;
-                        bool visible = IsVoxelOccluder(x, adjY, z, voxels, neighbour);
-                        _mask[x * Chunk.SIZE + z] = visible ? voxelId : 0;
+                    uint neighborMask;
+                    if (!isBoundary)
+                    {
+                        neighborMask = _solidSliceMasks[adjY * Chunk.SIZE + x];
+                    }
+                    else if (neighbourVoxels != null)
+                    {
+                        int wrappedY = positive ? 0 : Chunk.SIZE - 1;
+                        neighborMask = 0;
+                        for (int z = 0; z < Chunk.SIZE; z++)
+                            if (neighbourVoxels[x, wrappedY, z].Id != 0)
+                                neighborMask |= 1u << z;
+                    }
+                    else
+                    {
+                        neighborMask = 0;
+                    }
+
+                    uint visibleMask = solidMask & ~neighborMask;
+
+                    while (visibleMask != 0)
+                    {
+                        int z = BitOperations.TrailingZeroCount(visibleMask);
+                        visibleMask &= visibleMask - 1;
+                        int id = voxels[x, y, z].Id;
+                        _faceMasks[id * Chunk.SIZE + x] |= 1u << z;
                     }
                 }
 
-                GreedyMerge(Chunk.SIZE, Chunk.SIZE, (row, col, w, h, id) =>
+                BinaryGreedyMerge((row, startBit, width, height, id) =>
                 {
-                    // row = x, col = z
+                    // row = x, startBit = z
                     (float r, float g, float b) = GetColorForId(id);
                     float py = worldY + y + (positive ? 1 : 0);
                     float px0 = worldX + row;
-                    float px1 = worldX + row + h;
-                    float pz0 = worldZ + col;
-                    float pz1 = worldZ + col + w;
+                    float px1 = worldX + row + height;
+                    float pz0 = worldZ + startBit;
+                    float pz1 = worldZ + startBit + width;
 
                     if (positive)
                     {
@@ -201,42 +276,71 @@ public static class ChunkMesher
             }
         }
 
-        // --- Z axis faces (Z+ and Z-) ---
-        // Slice perpendicular to Z: iterate z from 0..SIZE, mask is [x, y]
+        // Z AXIS FACES (Z+ and Z-)
+        // Solid mask layout: _solidSliceMasks[z * SIZE + x], bits represent y positions
+        Array.Clear(_solidSliceMasks, 0, _solidSliceMasks.Length);
+        for (int z = 0; z < Chunk.SIZE; z++)
+            for (int x = 0; x < Chunk.SIZE; x++)
+                for (int y = 0; y < Chunk.SIZE; y++)
+                    if (voxels[x, y, z].Id != 0)
+                        _solidSliceMasks[z * Chunk.SIZE + x] |= 1u << y;
+
         for (int face = 0; face < 2; face++)
         {
             bool positive = face == 0;
             float nz = positive ? 1f : -1f;
+            Voxel[,,]? neighbourVoxels = positive ? input.ZPos?.Voxels : input.ZNeg?.Voxels;
 
             for (int z = 0; z < Chunk.SIZE; z++)
             {
+                Array.Clear(_faceMasks, 0, _faceMasks.Length);
+
+                int adjZ = positive ? z + 1 : z - 1;
+                bool isBoundary = adjZ < 0 || adjZ >= Chunk.SIZE;
+
                 for (int x = 0; x < Chunk.SIZE; x++)
                 {
-                    for (int y = 0; y < Chunk.SIZE; y++)
-                    {
-                        int voxelId = voxels[x, y, z].Id;
-                        if (voxelId == 0)
-                        {
-                            _mask[x * Chunk.SIZE + y] = 0;
-                            continue;
-                        }
+                    uint solidMask = _solidSliceMasks[z * Chunk.SIZE + x];
+                    if (solidMask == 0) continue;
 
-                        int adjZ = positive ? z + 1 : z - 1;
-                        Voxel[,,]? neighbour = positive ? input.ZPos?.Voxels : input.ZNeg?.Voxels;
-                        bool visible = IsVoxelOccluder(x, y, adjZ, voxels, neighbour);
-                        _mask[x * Chunk.SIZE + y] = visible ? voxelId : 0;
+                    uint neighborMask;
+                    if (!isBoundary)
+                    {
+                        neighborMask = _solidSliceMasks[adjZ * Chunk.SIZE + x];
+                    }
+                    else if (neighbourVoxels != null)
+                    {
+                        int wrappedZ = positive ? 0 : Chunk.SIZE - 1;
+                        neighborMask = 0;
+                        for (int y = 0; y < Chunk.SIZE; y++)
+                            if (neighbourVoxels[x, y, wrappedZ].Id != 0)
+                                neighborMask |= 1u << y;
+                    }
+                    else
+                    {
+                        neighborMask = 0;
+                    }
+
+                    uint visibleMask = solidMask & ~neighborMask;
+
+                    while (visibleMask != 0)
+                    {
+                        int y = BitOperations.TrailingZeroCount(visibleMask);
+                        visibleMask &= visibleMask - 1;
+                        int id = voxels[x, y, z].Id;
+                        _faceMasks[id * Chunk.SIZE + x] |= 1u << y;
                     }
                 }
 
-                GreedyMerge(Chunk.SIZE, Chunk.SIZE, (row, col, w, h, id) =>
+                BinaryGreedyMerge((row, startBit, width, height, id) =>
                 {
-                    // row = x, col = y
+                    // row = x, startBit = y
                     (float r, float g, float b) = GetColorForId(id);
                     float pz = worldZ + z + (positive ? 1 : 0);
                     float px0 = worldX + row;
-                    float px1 = worldX + row + h;
-                    float py0 = worldY + col;
-                    float py1 = worldY + col + w;
+                    float px1 = worldX + row + height;
+                    float py0 = worldY + startBit;
+                    float py1 = worldY + startBit + width;
 
                     if (positive)
                     {
@@ -270,62 +374,59 @@ public static class ChunkMesher
 
 
     /// <summary>
-    /// Greedy-merges the static <see cref="_mask"/> array (dimensions <paramref name="rows"/> × <paramref name="cols"/>).
-    /// For each maximal rectangle of identical non-zero IDs found, <paramref name="emitQuad"/> is called
-    /// with (startRow, startCol, width, height, voxelId). The mask entries are zeroed as they are consumed.
+    /// Binary greedy merge: iterates all per-type face masks in <see cref="_faceMasks"/>,
+    /// using bitwise operations to find maximal rectangular regions of same-type visible faces.
+    /// 
+    /// For each voxel type, scans rows of the face mask. Within each row, uses
+    /// <see cref="BitOperations.TrailingZeroCount(int)"/> to locate the first set bit (start of a run)
+    /// and the first clear bit after it (end of the run) in O(1). The resulting run mask is then
+    /// tested against subsequent rows to extend the rectangle vertically, again using a single
+    /// bitwise AND + compare per row.
+    /// 
+    /// Merged bits are cleared from the masks as they are consumed.
     /// </summary>
-    private static void GreedyMerge(int rows, int cols, EmitQuadDelegate emitQuad)
+    private static void BinaryGreedyMerge(EmitBinaryQuadDelegate emitQuad)
     {
-        for (int row = 0; row < rows; row++)
+        for (int id = 1; id <= MAX_VOXEL_ID; id++)
         {
-            for (int col = 0; col < cols; )
+            int maskBase = id * Chunk.SIZE;
+
+            for (int row = 0; row < Chunk.SIZE; row++)
             {
-                int idx = row * cols + col;
-                int id = _mask[idx];
-                if (id == 0)
+                ref uint rowMask = ref _faceMasks[maskBase + row];
+                while (rowMask != 0)
                 {
-                    col++;
-                    continue;
-                }
+                    // Find the first set bit (start of a horizontal run)
+                    int startBit = BitOperations.TrailingZeroCount(rowMask);
 
-                // Determine width: extend along the column axis while the ID matches
-                int w = 1;
-                while (col + w < cols && _mask[idx + w] == id)
-                    w++;
+                    // Count consecutive set bits (width of the run)
+                    // Shift so the run starts at bit 0, invert, then count trailing zeros of the inverted value
+                    int width = BitOperations.TrailingZeroCount(~(rowMask >> startBit));
 
-                // Determine height: extend along the row axis while every cell in the strip matches
-                int h = 1;
-                bool fits = true;
-                while (row + h < rows && fits)
-                {
-                    int rowIdx = (row + h) * cols + col;
-                    for (int k = 0; k < w; k++)
+                    // Build a bitmask covering the run
+                    // width==32: (1u << 32) is undefined in C# (shift mod 32 = no-op)
+                    uint runMask = width >= 32
+                        ? uint.MaxValue
+                        : ((1u << width) - 1) << startBit;
+
+                    // Extend vertically: check subsequent rows for the same run pattern
+                    int height = 1;
+                    while (row + height < Chunk.SIZE &&
+                           (_faceMasks[maskBase + row + height] & runMask) == runMask)
                     {
-                        if (_mask[rowIdx + k] != id)
-                        {
-                            fits = false;
-                            break;
-                        }
+                        _faceMasks[maskBase + row + height] &= ~runMask;
+                        height++;
                     }
-                    if (fits) h++;
+
+                    rowMask &= ~runMask;
+
+                    emitQuad(row, startBit, width, height, id);
                 }
-
-                // Zero out the merged region in the mask
-                for (int dy = 0; dy < h; dy++)
-                {
-                    int rowIdx = (row + dy) * cols + col;
-                    for (int dx = 0; dx < w; dx++)
-                        _mask[rowIdx + dx] = 0;
-                }
-
-                emitQuad(row, col, w, h, id);
-
-                col += w;
             }
         }
     }
 
-    private delegate void EmitQuadDelegate(int row, int col, int w, int h, int voxelId);
+    private delegate void EmitBinaryQuadDelegate(int row, int startBit, int width, int height, int voxelId);
 
 
     /// <summary>
@@ -400,39 +501,5 @@ public static class ChunkMesher
             7 => (1f, 1f, 1f),  // white
             _ => throw new ArgumentException($"Unknown voxel ID: {id}")
         };
-    }
-
-
-    /// <param name="voxels">Voxel data of the current chunk</param>
-    /// <param name="neighbourVoxels">Voxel data of the neighbor chunk in the occluder direction, or null at world boundary</param>
-    /// <param name="x">Voxel X coordinate</param>
-    /// <param name="y">Voxel Y coordinate</param>
-    /// <param name="z">Voxel Z coordinate</param>
-    private static bool IsVoxelOccluder(int x, int y, int z, Voxel[,,] voxels, Voxel[,,]? neighbourVoxels)
-    {
-        // Within chunk bounds: check the adjacent voxel directly
-        if (x is >= 0 and < Chunk.SIZE &&
-            y is >= 0 and < Chunk.SIZE &&
-            z is >= 0 and < Chunk.SIZE)
-            return voxels[x, y, z].Id == 0;
-
-        if (neighbourVoxels == null)
-            return true;
-
-        // Wrap out-of-bounds coordinate to the opposite side of the neighbor chunk
-        if (x >= Chunk.SIZE)
-            x = 0;
-        else if (x < 0)
-            x = Chunk.SIZE - 1;
-        if (y >= Chunk.SIZE)
-            y = 0;
-        else if (y < 0)
-            y = Chunk.SIZE - 1;
-        if (z >= Chunk.SIZE)
-            z = 0;
-        else if (z < 0)
-            z = Chunk.SIZE - 1;
-
-        return neighbourVoxels[x, y, z].Id == 0;
     }
 }
