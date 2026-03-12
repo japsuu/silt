@@ -59,6 +59,7 @@ public sealed class StatsWindow : IUiWindow
         ImGui.TextUnformatted("Camera");
         Camera cam = CameraManager.MainCamera;
         ImGui.TextUnformatted($"Position: {cam.Position.X:F2}, {cam.Position.Y:F2}, {cam.Position.Z:F2}");
+        ImGui.TextUnformatted($"Pitch: {cam.Pitch:F2}°, Yaw: {cam.Yaw:F2}°");
     }
 
 
